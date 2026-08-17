@@ -1,0 +1,15 @@
+{
+  "name": "SlimQuest - 食事と体重の記録",
+  "short_name": "SlimQuest",
+  "description": "食事・体重・運動を素早く記録して、目標に向けた体重の変化を見えるようにするアプリ",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b1220",
+  "theme_color": "#0b1220",
+  "lang": "ja",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

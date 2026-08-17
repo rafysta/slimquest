@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<title>SlimQuest</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/style.css?v=0.1.0">
+<script>
+/* スクリプト読み込み中のエラーも拾う(app.jsが画面に出す) */
+window.__earlyErrors = [];
+window.addEventListener('error', function (e) {
+  window.__earlyErrors.push((e.message || 'エラー') + ' @' +
+    String(e.filename || '').split('/').pop() + ':' + (e.lineno || 0));
+});
+window.addEventListener('unhandledrejection', function (e) {
+  window.__earlyErrors.push('Promise: ' + String((e.reason && e.reason.message) || e.reason));
+});
+</script>
+</head>
+<body>
+
+<!-- ============ ホーム ============ -->
+<section id="screen-home" class="screen active">
+  <header class="app-header">
+    <h1>SlimQuest</h1>
+    <p class="subtitle" id="countdown">目標日まで</p>
+  </header>
+
+  <div class="update-banner hidden" id="update-banner">
+    <span id="update-banner-text">新しいバージョンがあります</span>
+    <button id="btn-banner-update">更新</button>
+  </div>
+
+  <div class="card ring-card">
+    <div id="ring" class="ring-wrap"></div>
+    <div id="balance-detail" class="balance-detail"></div>
+    <p id="pfc-line" class="pfc-line"></p>
+  </div>
+
+  <div class="quick-row">
+    <button class="quick-btn primary" data-addmeal="">🍽️<span>食事を記録</span></button>
+    <button class="quick-btn" data-nav="weight">⚖️<span>体重</span></button>
+    <button class="quick-btn" data-nav="exercise">🏃<span>運動</span></button>
+  </div>
+
+  <div class="card mini-row">
+    <button class="mini-item" data-nav="weight">
+      <span class="mini-label">体重</span>
+      <span class="mini-val" id="home-weight">-</span>
+    </button>
+    <button class="mini-item" data-nav="badges">
+      <span class="mini-label">🔥 記録</span>
+      <span class="mini-val" id="streak-text">連続 0 日</span>
+    </button>
+  </div>
+
+  <nav class="home-menu">
+    <button class="menu-btn" data-nav="diary">
+      <span class="menu-icon">📖</span>
+      <span class="menu-label">食事日記</span>
+      <span class="menu-desc">今日と過去の記録を見る・直す</span>
+    </button>
+    <button class="menu-btn" data-nav="settings">
+      <span class="menu-icon">⚙️</span>
+      <span class="menu-label">設定</span>
+      <span class="menu-desc">プロフィール・目標・自動計上</span>
+    </button>
+    <button class="menu-btn" data-nav="about">
+      <span class="menu-icon">ℹ️</span>
+      <span class="menu-label">アプリ情報</span>
+      <span class="menu-desc">バージョンと更新履歴</span>
+    </button>
+  </nav>
+  <p class="footer" id="version-footer"></p>
+</section>
+
+<!-- ============ 初回設定ウィザード ============ -->
+<section id="screen-setup" class="screen">
+  <header class="app-header">
+    <h1>はじめまして</h1>
+    <p class="subtitle">最初に体のことだけ教えてください</p>
+  </header>
+  <div class="card form">
+    <label>身長 (cm)<input type="number" id="wz-height" inputmode="decimal" step="0.1"></label>
+    <label>生まれ年<input type="number" id="wz-birth-year" inputmode="numeric"></label>
+    <label>性別
+      <select id="wz-sex">
+        <option value="male">男性</option>
+        <option value="female">女性</option>
+      </select>
+    </label>
+    <label>いまの体重 (kg)<input type="number" id="wz-weight" inputmode="decimal" step="0.1"></label>
+    <label>目標体重 (kg)<input type="number" id="wz-goal-weight" inputmode="decimal" step="0.1"></label>
+    <label>目標の日<input type="date" id="wz-goal-date"></label>
+    <p class="field-note">基礎代謝と1日の目安カロリーの計算に使います。あとから設定で変えられます。</p>
+    <button class="btn primary" id="btn-wz-done">はじめる</button>
+  </div>
+</section>
+
+<!-- ============ 食事入力 ============ -->
+<section id="screen-meal-add" class="screen">
+  <header class="sub-header">
+    <button class="back" data-nav="home">←</button>
+    <h2>食事を記録</h2>
+  </header>
+
+  <div id="slot-tabs" class="slot-tabs"></div>
+
+  <div class="search-row">
+    <input type="search" id="meal-search" placeholder="食べたものを入力(例: からあげ)" autocomplete="off">
+    <button id="btn-search-clear" class="search-clear">×</button>
+  </div>
+
+  <h3 class="list-title" id="meal-list-title"></h3>
+  <div id="meal-results" class="food-list"></div>
+
+  <button class="btn ghost" id="btn-meal-new">＋ 新しく登録する</button>
+  <p class="field-note">一度登録したものは「よく食べるもの」に並び、次からはタップだけで記録できます。</p>
+</section>
+
+<!-- ============ 新規メニュー登録 ============ -->
+<section id="screen-meal-new" class="screen">
+  <header class="sub-header">
+    <button class="back" data-nav="meal-add">←</button>
+    <h2>新しいメニュー</h2>
+  </header>
+  <div class="card form">
+    <label>名前<input type="text" id="mn-name" placeholder="例: 肉じゃが"></label>
+    <label>基準量<input type="text" id="mn-base" placeholder="例: 1人前 / 1個 / 100g"></label>
+    <label>カロリー (kcal)<input type="number" id="mn-kcal" inputmode="numeric"></label>
+    <div class="row3">
+      <label>P (g)<input type="number" id="mn-p" inputmode="decimal" step="0.1"></label>
+      <label>F (g)<input type="number" id="mn-f" inputmode="decimal" step="0.1"></label>
+      <label>C (g)<input type="number" id="mn-c" inputmode="decimal" step="0.1"></label>
+    </div>
+    <p class="field-note">PFC(たんぱく質・脂質・炭水化物)は分からなければ空でも構いません。</p>
+    <button class="btn primary" id="btn-mn-save-record">登録して今すぐ記録</button>
+    <button class="btn ghost" id="btn-mn-save">登録だけする</button>
+  </div>
+</section>
+
+<!-- ============ 食事日記 ============ -->
+<section id="screen-diary" class="screen">
+  <header class="sub-header">
+    <button class="back" data-nav="home">←</button>
+    <h2>食事日記</h2>
+  </header>
+  <div class="date-nav">
+    <button id="btn-diary-prev">◀</button>
+    <span id="diary-date">-</span>
+    <button id="btn-diary-next">▶</button>
+    <button id="btn-diary-today" class="today-btn">今日</button>
+  </div>
+  <div id="diary-body"></div>
+  <button class="btn primary" data-addmeal="">＋ 食事を追加</button>
+</section>
+
+<!-- ============ 体重 ============ -->
+<section id="screen-weight" class="screen">
+  <header class="sub-header">
+    <button class="back" data-nav="home">←</button>
+    <h2>体重</h2>
+  </header>
+
+  <div class="card">
+    <p class="note" id="w-today-note"></p>
+    <div class="w-input-row">
+      <label>体重 (kg)<input type="number" id="w-input" inputmode="decimal" step="0.1"></label>
+      <label>体脂肪率 (%)<input type="number" id="w-bf" inputmode="decimal" step="0.1" placeholder="任意"></label>
+    </div>
+    <button class="btn primary" id="btn-w-save">今日の体重を記録</button>
+  </div>
+
+  <div id="w-stats" class="wstats"></div>
+
+  <div class="card">
+    <div id="w-range" class="range-tabs">
+      <button data-range="1m">1ヶ月</button>
+      <button data-range="3m">3ヶ月</button>
+      <button data-range="all" class="active">全期間</button>
+    </div>
+    <div id="w-graph"></div>
+    <p class="legend">
+      <span class="lg lg-line"></span>実測
+      <span class="lg lg-avg"></span>7日平均
+      <span class="lg lg-band"></span>ペース帯(週0.5〜0.8kg)
+      <span class="lg lg-goal"></span>目標
+    </p>
+    <p class="note" id="w-pace"></p>
+  </div>
+</section>
+
+<!-- ============ 運動 ============ -->
+<section id="screen-exercise" class="screen">
+  <header class="sub-header">
+    <button class="back" data-nav="home">←</button>
+    <h2>運動</h2>
+  </header>
+  <div id="ex-presets" class="ex-grid"></div>
+  <div class="card">
+    <label>時間 (分)<input type="number" id="ex-min" inputmode="numeric"></label>
+    <p class="note" id="ex-preview"></p>
+    <button class="btn primary" id="btn-ex-add">記録する</button>
+  </div>
+  <h3 class="list-title" id="ex-total">今日の運動</h3>
+  <div id="ex-today"></div>
+</section>
+
+<!-- ============ バッジ ============ -->
+<section id="screen-badges" class="screen">
+  <header class="sub-header">
+    <button class="back" data-nav="home">←</button>
+    <h2>記録とバッジ</h2>
+  </header>
+  <p class="note" id="badge-summary"></p>
+  <div id="badge-list" class="badge-list"></div>
+</section>
+
+<!-- ============ 設定 ============ -->
+<section id="screen-settings" class="screen">
+  <header class="sub-header">
+    <button class="back" data-nav="home">←</button>
+    <h2>設定</h2>
+  </header>
+
+  <div class="card form">
+    <h3>プロフィール</h3>
+    <label>身長 (cm)<input type="number" id="st-height" inputmode="decimal" step="0.1"></label>
+    <div class="row3">
+      <label>生まれ年<input type="number" id="st-birth-year" inputmode="numeric"></label>
+      <label>月<input type="number" id="st-birth-month" inputmode="numeric" min="1" max="12"></label>
+      <label>性別
+        <select id="st-sex">
+          <option value="male">男性</option>
+          <option value="female">女性</option>
+        </select>
+      </label>
+    </div>
+    <h3>目標</h3>
+    <div class="row2">
+      <label>開始体重 (kg)<input type="number" id="st-start-weight" inputmode="decimal" step="0.1"></label>
+      <label>開始日<input type="date" id="st-start-date"></label>
+    </div>
+    <div class="row2">
+      <label>目標体重 (kg)<input type="number" id="st-goal-weight" inputmode="decimal" step="0.1"></label>
+      <label>目標の日<input type="date" id="st-goal-date"></label>
+    </div>
+    <h3>自転車通勤の自動計上</h3>
+    <label class="check"><input type="checkbox" id="st-commute-on"> 平日は自動で記録する</label>
+    <label>往復の時間 (分)<input type="number" id="st-commute-min" inputmode="numeric"></label>
+    <p class="field-note">休んだ日は食事日記から × を押して消せます。</p>
+    <button class="btn primary" id="btn-st-save">保存</button>
+    <div id="st-info" class="info-box"></div>
+  </div>
+
+  <div class="card">
+    <h3>データ</h3>
+    <button class="btn danger" id="btn-wipe-data">すべての記録を削除</button>
+    <p class="field-note">バックアップ機能は今後のバージョンで追加します。</p>
+  </div>
+</section>
+
+<!-- ============ アプリ情報 ============ -->
+<section id="screen-about" class="screen">
+  <header class="sub-header">
+    <button class="back" data-nav="home">←</button>
+    <h2>アプリ情報</h2>
+  </header>
+  <div class="card">
+    <p>実行中のバージョン: <b id="ab-version">-</b></p>
+    <button class="btn" id="btn-check-update">更新を確認</button>
+    <p class="note" id="update-status"></p>
+    <button class="btn ghost" id="btn-force-reset">完全リセット(キャッシュ削除)</button>
+  </div>
+  <div class="card" id="ab-changelog"></div>
+</section>
+
+<!-- ============ 量の指定シート ============ -->
+<div id="amount-sheet" class="sheet-overlay hidden">
+  <div class="sheet">
+    <h3 id="as-name">-</h3>
+    <p class="note" id="as-base"></p>
+    <div id="as-quick" class="quick-factors">
+      <button data-f="0.5">0.5</button>
+      <button data-f="1" class="active">1</button>
+      <button data-f="1.5">1.5</button>
+      <button data-f="2">2</button>
+    </div>
+    <input type="range" id="as-slider" min="0.1" max="3" step="0.1" value="1">
+    <p class="as-factor" id="as-factor">× 1</p>
+    <p class="as-kcal" id="as-kcal">0 kcal</p>
+    <p class="note" id="as-pfc"></p>
+    <div class="sheet-btns">
+      <button class="btn ghost" id="as-cancel">やめる</button>
+      <button class="btn primary" id="as-ok">記録する</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 共通モーダル ============ -->
+<div id="modal-overlay" class="modal-overlay hidden">
+  <div class="modal">
+    <h3 id="modal-title"></h3>
+    <p id="modal-msg"></p>
+    <div class="modal-btns">
+      <button id="modal-cancel" class="btn ghost">キャンセル</button>
+      <button id="modal-ok" class="btn primary">OK</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/version.js?v=0.1.0"></script>
+<script src="js/db.js?v=0.1.0"></script>
+<script src="js/foods.js?v=0.1.0"></script>
+<script src="js/calc.js?v=0.1.0"></script>
+<script src="js/menus.js?v=0.1.0"></script>
+<script src="js/meals.js?v=0.1.0"></script>
+<script src="js/weight.js?v=0.1.0"></script>
+<script src="js/exercise.js?v=0.1.0"></script>
+<script src="js/streak.js?v=0.1.0"></script>
+<script src="js/app.js?v=0.1.0"></script>
+</body>
+</html>
