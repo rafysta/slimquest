@@ -1,6 +1,6 @@
 # SlimQuest 実装ノート
 
-**対象バージョン: v0.1.0 (2026-08-17) / Phase 1 完了時点**
+**対象バージョン: v0.2.0 (2026-08-18) / Phase 1 + セット登録・AI検索**
 
 新しい会話を始めるときに、まずこのファイルを読めば現状が把握できるようにしたものです。
 機能を追加・変更したら、このファイルも必ず更新してください。
@@ -40,7 +40,8 @@
 | `home` | ホーム(収支リング・カウントダウン・体重・ストリーク) | ✅ |
 | `setup` | 初回設定ウィザード | ✅ |
 | `meal-add` | 食事入力(区分タブ・検索・よく食べるもの) | ✅ |
-| `meal-new` | 新規メニュー登録(手動) | ✅ Phase 2 で AI / Web検索ボタンを追加 |
+| `meal-new` | 新規メニュー登録(手動 + AI検索で候補入力) | ✅ v0.2.0 でAI検索を追加 |
+| `meal-set` | セット(組み合わせ)メニューの作成 | ✅ v0.2.0 |
 | `diary` | 食事日記(日送り・削除) | ✅ |
 | `weight` | 体重の記録とグラフ | ✅ |
 | `exercise` | 運動の記録 | ✅ |
@@ -69,6 +70,7 @@
 | `sq_streak` | `{count, best, last, total}` |
 | `sq_badges` | `{ [badgeId]: 解除日 }` |
 | `sq_auto_last` | 自転車通勤を自動計上した最後の日(二重計上の防止) |
+| `sq_ai_key` | Anthropic APIキー(AI検索用。設定画面で登録。データ全消去では消さない) |
 | (Phase 2) `sq_claude_key` / `sq_openai_key` / `sq_ai_provider` / `sq_ai_model` | AI設定 |
 
 **同梱データの使用回数を localStorage に置いている理由**: foods.js の食品は IndexedDB に入れていない
@@ -159,11 +161,40 @@
 
 ---
 
+### セットメニューと AI検索(v0.2.0 追加)
+
+**セット(`js/meals.js` の `SetBuilder`)** — 「シリアル+プロテイン+牛乳」のように
+いつも一緒に食べる組み合わせを1つのメニューとして登録する。
+
+- 保存形式は普通のメニューと同じ menus レコードで `origin: 'set'`、`base: '1セット'`。
+  合計 kcal/PFC は登録時に構成要素から計算して本体に持つ(記録経路は既存のまま)
+- `ingredients: [{menuId, name, base, factor, kcal, p, f, c}]` に構成要素のスナップショットを保持。
+  構成要素側を後から変えてもセットの値は変わらない(記録の一貫性を優先)
+- 量は構成要素ごとに −/＋ で 0.25 刻み。食事日記には1行で入り、内訳は量シート(`#as-ing`)に表示
+- 構成要素は単品のメニューのまま残るので、別の組み合わせ(シリアル+牛乳+果物など)の日にも対応できる
+- セット作成中に見つからない食品は `Meals.openNew(prefill, forSet=true)` でその場で登録して
+  セットに戻る(`Meals.newForSet` フラグ。meal-new の戻るボタン `#mn-back` も同フラグで分岐)
+- セットの入れ子は不可(SetBuilder の検索結果から `origin === 'set'` を除外)
+
+**AI検索(`js/ai.js`)** — 新規メニュー登録画面の「🔍 ネットで調べて入力」ボタン。
+
+- `AI.searchFood(query, answers)` が Anthropic Messages API を直接 fetch
+  (`anthropic-dangerous-direct-browser-access` ヘッダーでブラウザから呼ぶ)。
+  Web検索ツール `web_search_20250305`(max_uses: 4)付き。モデルは `AI.MODEL` 定数
+- 応答は JSON 1個を指示: `{candidates: [{name, base, kcal, p, f, c, note}], questions: [{q, options}]}`。
+  情報が足りないときは questions が返り、選択肢チップ or 自由入力(`AiUI`)で answers に積んで再照会
+- 候補をタップするとフォームに値が入るだけで、登録は従来どおりユーザーが確認して行う。
+  このとき `origin: 'ai'` で保存(`#mn-name` の dataset.origin 経由)
+- APIキー未設定なら設定画面へ誘導。キーがなくてもアプリの他機能は全部動く
+- SW は `api.anthropic.com` をパススルー済み(v0.1.0 から準備されていた)
+
 ## 4. 読み込み順序
 
 ```
-version → db → foods → calc → menus → meals → weight → exercise → streak → app
+version → db → foods → calc → menus → ai → meals → weight → exercise → streak → app
 ```
+
+(`ai.js` は `meals.js` より前。`AiUI` を `Meals.openNew` が呼ぶため)
 
 `app.js` が全モジュールに依存するため必ず最後。Phase 2 以降で追加するファイルの位置:
 

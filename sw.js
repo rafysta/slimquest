@@ -4,7 +4,7 @@
  * 迂回する(cache:'no-store')。GitHub Pages が返す Cache-Control で古いファイルが
  * 使われ続けるのを防ぐため。オフラインのときだけ Cache Storage を使う。
  */
-const CACHE_VERSION = 'sq-v1';
+const CACHE_VERSION = 'sq-v2';
 const APP_SHELL = [
   './',
   './index.html',
@@ -14,6 +14,7 @@ const APP_SHELL = [
   './js/foods.js',
   './js/calc.js',
   './js/menus.js',
+  './js/ai.js',
   './js/meals.js',
   './js/weight.js',
   './js/exercise.js',

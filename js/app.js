@@ -126,6 +126,7 @@ function showScreen(name) {
 
   if (name === 'home') renderHome();
   if (name === 'meal-add') { Meals.renderSlotTabs(); Meals.renderList(); }
+  if (name === 'meal-set') SetBuilder.render();
   if (name === 'diary') Meals.renderDiary();
   if (name === 'weight') Weight.render();
   if (name === 'exercise') Exercise.render();
@@ -201,6 +202,7 @@ function loadSettings() {
   set('st-goal-date', p.goalDate);
   set('st-commute-min', (p.commute && p.commute.minutes) || 40);
   document.getElementById('st-commute-on').checked = !!(p.commute && p.commute.on);
+  set('st-ai-key', AI.getKey());
   renderSettingsInfo();
 }
 
@@ -238,6 +240,7 @@ function saveSettings() {
     appAlert('身長・体重・目標体重を入力してください');
     return false;
   }
+  AI.setKey(document.getElementById('st-ai-key').value);
   Profile.save(p);
   renderSettingsInfo();
   showToast('設定を保存しました');
@@ -335,6 +338,25 @@ function bindEvents() {
   });
   document.getElementById('btn-mn-save-record').addEventListener('click', () => Meals.saveNew(true));
   document.getElementById('btn-mn-save').addEventListener('click', () => Meals.saveNew(false));
+  document.getElementById('mn-back').addEventListener('click', () => {
+    const dest = Meals.newForSet ? 'meal-set' : 'meal-add';
+    Meals.newForSet = false;
+    showScreen(dest);
+  });
+  document.getElementById('btn-ai-search').addEventListener('click', () => AiUI.start());
+
+  // セット作成
+  document.getElementById('btn-meal-set').addEventListener('click', () => SetBuilder.openFresh());
+  const msSearch = document.getElementById('ms-search');
+  msSearch.addEventListener('input', () => SetBuilder.renderResults());
+  document.getElementById('ms-search-clear').addEventListener('click', () => {
+    msSearch.value = ''; SetBuilder.renderResults(); msSearch.focus();
+  });
+  document.getElementById('btn-ms-new-item').addEventListener('click', () => {
+    Meals.openNew(msSearch.value.trim(), true);
+  });
+  document.getElementById('btn-ms-save-record').addEventListener('click', () => SetBuilder.save(true));
+  document.getElementById('btn-ms-save').addEventListener('click', () => SetBuilder.save(false));
 
   // 量シート
   document.querySelectorAll('#as-quick [data-f]').forEach((b) => {

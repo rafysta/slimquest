@@ -144,6 +144,14 @@ const Meals = {
     const slider = document.getElementById('as-slider');
     slider.value = '1';
     this.setFactor(1);
+    const ing = document.getElementById('as-ing');
+    if (m.ingredients && m.ingredients.length) {
+      ing.innerHTML = '内訳: ' + m.ingredients.map((x) =>
+        `${escapeHtml(x.name)}${x.factor !== 1 ? `×${x.factor}` : ''}`).join(' + ');
+      ing.classList.remove('hidden');
+    } else {
+      ing.classList.add('hidden');
+    }
     document.getElementById('amount-sheet').classList.remove('hidden');
   },
 
@@ -180,17 +188,28 @@ const Meals = {
 
   /* ---------- 新規メニューの手動登録 ---------- */
 
-  openNew(prefill) {
-    document.getElementById('mn-name').value = prefill || '';
+  /** true のときはセット作成画面からの呼び出し(保存後にセットへ追加して戻る) */
+  newForSet: false,
+
+  openNew(prefill, forSet) {
+    this.newForSet = !!forSet;
+    const nameEl = document.getElementById('mn-name');
+    nameEl.value = prefill || '';
+    delete nameEl.dataset.origin;
     document.getElementById('mn-base').value = '1人前';
     ['mn-kcal', 'mn-p', 'mn-f', 'mn-c'].forEach((id) => {
       document.getElementById(id).value = '';
     });
+    AiUI.reset();
+    document.getElementById('btn-mn-save-record').classList.toggle('hidden', this.newForSet);
+    document.getElementById('btn-mn-save').textContent =
+      this.newForSet ? '登録してセットに追加' : '登録だけする';
     showScreen('meal-new');
   },
 
   async saveNew(alsoRecord) {
-    const name = document.getElementById('mn-name').value.trim();
+    const nameEl = document.getElementById('mn-name');
+    const name = nameEl.value.trim();
     if (!name) { appAlert('メニュー名を入力してください'); return; }
     const kcal = Number(document.getElementById('mn-kcal').value);
     if (!kcal || kcal <= 0) { appAlert('カロリーを入力してください'); return; }
@@ -202,8 +221,16 @@ const Meals = {
       p: Number(document.getElementById('mn-p').value) || 0,
       f: Number(document.getElementById('mn-f').value) || 0,
       c: Number(document.getElementById('mn-c').value) || 0,
-      origin: 'manual'
+      origin: nameEl.dataset.origin || 'manual'
     });
+    delete nameEl.dataset.origin;
+    if (this.newForSet) {
+      this.newForSet = false;
+      SetBuilder.addMenu(menu);
+      showToast(`${menu.name} を登録してセットに追加しました`);
+      showScreen('meal-set');
+      return;
+    }
     if (alsoRecord) {
       await this.add(Calc.today(), this.slot, menu, 1);
       Streak.recordToday();
@@ -277,4 +304,153 @@ const Meals = {
   }
 };
 
-if (typeof module !== 'undefined' && module.exports) module.exports = { Meals, SLOTS };
+/* ---------- セット(組み合わせ)メニューの作成 ----------
+ *
+ * 「シリアル+プロテイン+牛乳」のようにいつも一緒に食べる組み合わせを、
+ * 1つのメニューとして登録する。合計カロリー・PFCは構成要素から自動計算。
+ * 構成要素は普通のメニューのままなので、単品でも記録できる
+ * (シリアル+牛乳+果物のような別の組み合わせの日にも対応できる)。
+ * 記録は1行(1セット)で入り、内訳は量の指定シートに表示される。
+ */
+
+const SetBuilder = {
+  items: [],   // {menuId, name, base, factor, kcal, p, f, c}
+
+  /** 「セットを作る」ボタンから(作りかけを捨てて新規に) */
+  openFresh() {
+    this.items = [];
+    document.getElementById('ms-name').value = '';
+    document.getElementById('ms-search').value = '';
+    this.render();
+    showScreen('meal-set');
+  },
+
+  render() {
+    this.renderItems();
+    this.renderResults();
+  },
+
+  totals() {
+    return this.items.reduce((t, x) => ({
+      kcal: t.kcal + x.kcal * x.factor,
+      p: t.p + x.p * x.factor,
+      f: t.f + x.f * x.factor,
+      c: t.c + x.c * x.factor
+    }), { kcal: 0, p: 0, f: 0, c: 0 });
+  },
+
+  renderItems() {
+    const box = document.getElementById('ms-items');
+    if (!this.items.length) {
+      box.innerHTML = '<p class="empty small">下の検索から構成要素(例: シリアル、プロテイン、牛乳)を追加してください。</p>';
+    } else {
+      box.innerHTML = this.items.map((x, i) => `
+        <div class="set-row">
+          <span class="food-main">
+            <span class="food-name">${escapeHtml(x.name)}</span>
+            <span class="food-base">${escapeHtml(x.base)} × ${x.factor}</span>
+          </span>
+          <span class="food-kcal">${Math.round(x.kcal * x.factor)}<small>kcal</small></span>
+          <span class="set-ctrls">
+            <button data-ms-minus="${i}" aria-label="減らす">−</button>
+            <button data-ms-plus="${i}" aria-label="増やす">＋</button>
+            <button data-ms-del="${i}" class="set-del" aria-label="削除">×</button>
+          </span>
+        </div>`).join('');
+      box.querySelectorAll('[data-ms-minus]').forEach((b) =>
+        b.addEventListener('click', () => this.step(Number(b.dataset.msMinus), -0.25)));
+      box.querySelectorAll('[data-ms-plus]').forEach((b) =>
+        b.addEventListener('click', () => this.step(Number(b.dataset.msPlus), 0.25)));
+      box.querySelectorAll('[data-ms-del]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.items.splice(Number(b.dataset.msDel), 1);
+          this.renderItems();
+        }));
+    }
+    const t = this.totals();
+    document.getElementById('ms-total').innerHTML = this.items.length
+      ? `<b>合計 ${Math.round(t.kcal)} kcal</b><span class="note">P ${Calc.r1(t.p)}g / F ${Calc.r1(t.f)}g / C ${Calc.r1(t.c)}g</span>`
+      : '<span class="note">まだ何も入っていません</span>';
+  },
+
+  /** 構成要素の量を0.25刻みで増減する(牛乳150mlのような半端にも対応) */
+  step(i, d) {
+    const x = this.items[i];
+    if (!x) return;
+    x.factor = Math.max(0.25, Math.round((x.factor + d) * 100) / 100);
+    this.renderItems();
+  },
+
+  /** 検索が空なら「よく食べるもの」を出す。セットの入れ子は不可 */
+  renderResults() {
+    const q = document.getElementById('ms-search').value.trim();
+    const box = document.getElementById('ms-results');
+    const list = (q ? Menus.search(q, 12) : Menus.frequent(Meals.slot, 8))
+      .filter((m) => m.origin !== 'set');
+    if (!list.length) {
+      box.innerHTML = q
+        ? '<p class="empty small">見つかりません。下の「新しく登録」から追加できます。</p>'
+        : '';
+      return;
+    }
+    box.innerHTML = list.map((m) => `
+      <button class="food-row" data-ms-add="${m.id}">
+        <span class="food-main">
+          <span class="food-name">＋ ${escapeHtml(m.name)}</span>
+          <span class="food-base">${escapeHtml(m.base)}</span>
+        </span>
+        <span class="food-kcal">${m.kcal}<small>kcal</small></span>
+      </button>`).join('');
+    box.querySelectorAll('[data-ms-add]').forEach((b) =>
+      b.addEventListener('click', () => {
+        const m = Menus.byId(b.dataset.msAdd);
+        if (m) this.addMenu(m);
+        document.getElementById('ms-search').value = '';
+        this.render();
+      }));
+  },
+
+  addMenu(menu, factor) {
+    this.items.push({
+      menuId: menu.id, name: menu.name, base: menu.base,
+      factor: factor || 1,
+      kcal: menu.kcal, p: menu.p, f: menu.f, c: menu.c
+    });
+    this.renderItems();
+  },
+
+  async save(alsoRecord) {
+    if (this.items.length < 2) { appAlert('構成要素を2つ以上追加してください'); return; }
+    const t = this.totals();
+    const name = document.getElementById('ms-name').value.trim() ||
+      this.items.map((x) => x.name).join('+');
+    const menu = await Menus.add({
+      name,
+      kana: name,
+      base: '1セット',
+      kcal: Math.round(t.kcal),
+      p: Calc.r1(t.p),
+      f: Calc.r1(t.f),
+      c: Calc.r1(t.c),
+      origin: 'set',
+      ingredients: this.items.map((x) => ({
+        menuId: x.menuId, name: x.name, base: x.base, factor: x.factor,
+        kcal: x.kcal, p: x.p, f: x.f, c: x.c
+      }))
+    });
+    if (alsoRecord) {
+      await Meals.add(Calc.today(), Meals.slot, menu, 1);
+      Streak.recordToday();
+      showToast(`${menu.name} を登録して${Meals.slotLabel(Meals.slot)}に記録しました`);
+    } else {
+      Menus.touch(menu.id, Meals.slot);
+      showToast(`${menu.name} を登録しました`);
+    }
+    this.items = [];
+    document.getElementById('meal-search').value = '';
+    Meals.renderList();
+    showScreen('meal-add');
+  }
+};
+
+if (typeof module !== 'undefined' && module.exports) module.exports = { Meals, SLOTS, SetBuilder };
