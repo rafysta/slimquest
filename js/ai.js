@@ -49,6 +49,11 @@ const AI = {
         answers.map((x) => `Q: ${x.q}\nA: ${x.a}`).join('\n');
     }
 
+    return this._parse(await this._call(system, user));
+  },
+
+  /** Messages API を1回叩いて、テキストブロックを連結して返す(Web検索ツール付き) */
+  async _call(system, user) {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -77,11 +82,33 @@ const AI = {
     }
 
     const data = await res.json();
-    const text = (data.content || [])
+    return (data.content || [])
       .filter((b) => b.type === 'text')
       .map((b) => b.text)
       .join('');
-    return this._parse(text);
+  },
+
+  /**
+   * JANコード(バーコード)から商品を特定する。
+   * 商品が特定できたときだけ候補を返し、分からなければ空で返させる
+   * (存在しない商品をもっともらしく作られると、そのまま登録されてしまうため)。
+   */
+  async searchByBarcode(code) {
+    const system = [
+      'あなたは日本のダイエット記録アプリの食品データ登録アシスタントです。',
+      'ユーザーが読み取ったJANコード(バーコード)から、Web検索で商品を特定し、栄養成分をJSONで返します。',
+      '',
+      'ルール:',
+      '- 必ずWeb検索でJANコードを調べ、商品名が特定できた場合だけ候補を返す。',
+      '- 商品が特定できない、または栄養成分が見つからない場合は candidates を空配列で返す。推測で商品を作らない。',
+      '- base(基準量)は栄養成分表示の単位に合わせる(例: 1袋 80g / 100g / 1本 190ml)。',
+      '- kcalは整数、p/f/c(たんぱく質・脂質・炭水化物のg)は小数1桁。noteに出どころを短く書く。',
+      '- 出力は次の形のJSONのみ。説明文・マークダウンは一切付けない。',
+      '{"candidates":[{"name":"","base":"","kcal":0,"p":0,"f":0,"c":0,"note":""}],"questions":[]}'
+    ].join('\n');
+
+    const res = await this._call(system, `JANコード: ${code}\nこの商品の名前と栄養成分を調べてください。`);
+    return this._parse(res);
   },
 
   /** 応答テキストからJSONを取り出す(前後に余計な文が付いていても耐える) */

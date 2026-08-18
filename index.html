@@ -8,7 +8,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="css/style.css?v=0.2.0">
+<link rel="stylesheet" href="css/style.css?v=0.3.0">
 <script>
 /* スクリプト読み込み中のエラーも拾う(app.jsが画面に出す) */
 window.__earlyErrors = [];
@@ -118,9 +118,13 @@ window.addEventListener('unhandledrejection', function (e) {
   <h3 class="list-title" id="meal-list-title"></h3>
   <div id="meal-results" class="food-list"></div>
 
-  <button class="btn ghost" id="btn-meal-new">＋ 新しく登録する</button>
-  <button class="btn ghost" id="btn-meal-set">🧩 セットを作る(組み合わせ)</button>
-  <p class="field-note">一度登録したものは「よく食べるもの」に並び、次からはタップだけで記録できます。いつも一緒に食べる組み合わせは「セット」にすると1タップで記録できます。</p>
+  <div class="add-ways">
+    <button class="btn ghost" id="btn-meal-new">＋ 新しく登録する</button>
+    <button class="btn ghost" id="btn-meal-barcode">📷 バーコードで登録</button>
+    <button class="btn ghost" id="btn-meal-set">🧩 セットを作る(組み合わせ)</button>
+    <button class="btn ghost" id="btn-meal-recipe">🍳 レシピを登録(材料から)</button>
+  </div>
+  <p class="field-note">一度登録したものは「よく食べるもの」に並び、次からはタップだけで記録できます。いつも一緒に食べる組み合わせは「セット」、自炊した料理は「レシピ」にすると、次から1タップで記録できます。</p>
 </section>
 
 <!-- ============ 新規メニュー登録 ============ -->
@@ -130,6 +134,7 @@ window.addEventListener('unhandledrejection', function (e) {
     <h2>新しいメニュー</h2>
   </header>
   <div class="card form">
+    <p class="note" id="mn-jan"></p>
     <label>名前<input type="text" id="mn-name" placeholder="例: 肉じゃが / フルグラ"></label>
     <button class="btn ghost" id="btn-ai-search">🔍 ネットで調べて入力(AI)</button>
     <div id="ai-box" class="ai-box hidden"></div>
@@ -173,6 +178,58 @@ window.addEventListener('unhandledrejection', function (e) {
   <button class="btn primary" id="btn-ms-save-record">セットを登録して今すぐ記録</button>
   <button class="btn ghost" id="btn-ms-save">登録だけする</button>
   <p class="field-note">量は −/＋ で0.25刻みに調整できます。記録後の食事日記には1行(1セット)で入り、内訳は記録時のシートで確認できます。</p>
+</section>
+
+<!-- ============ レシピ登録 ============ -->
+<section id="screen-recipe-edit" class="screen">
+  <header class="sub-header">
+    <button class="back" data-nav="meal-add">←</button>
+    <h2>レシピを登録</h2>
+  </header>
+  <p class="note">自炊した料理を材料から登録します。作った全体の合計を人数で割った<b>1人分</b>が、次から記録される値になります。</p>
+
+  <div class="card form">
+    <label>料理名<input type="text" id="rc-name" placeholder="例: 肉じゃが(空なら自動で命名)"></label>
+    <label>何人分作るか<input type="number" id="rc-serves" inputmode="numeric" min="1" step="1" value="2"></label>
+  </div>
+
+  <h3 class="list-title">材料(作った全体ぶん)</h3>
+  <div id="rc-items" class="food-list"></div>
+  <div class="card" id="rc-total"></div>
+
+  <h3 class="list-title">材料を追加</h3>
+  <div class="search-row">
+    <input type="search" id="rc-search" placeholder="材料を検索(例: じゃがいも)" autocomplete="off">
+    <button id="rc-search-clear" class="search-clear">×</button>
+  </div>
+  <div id="rc-results" class="food-list"></div>
+  <button class="btn ghost" id="btn-rc-new-item">＋ 見つからないので新しく登録する</button>
+
+  <button class="btn primary" id="btn-rc-save-record">レシピを登録して1人分を記録</button>
+  <button class="btn ghost" id="btn-rc-save">登録だけする</button>
+  <p class="field-note">材料の量は −/＋ で0.25刻みに調整できます(例: 100g が基準の豚こま切れ肉を ×2 で 200g)。</p>
+</section>
+
+<!-- ============ バーコード読み取り ============ -->
+<section id="screen-barcode" class="screen">
+  <header class="sub-header">
+    <button class="back" data-nav="meal-add">←</button>
+    <h2>バーコードで登録</h2>
+  </header>
+
+  <div class="bc-frame">
+    <video id="bc-video" playsinline muted></video>
+    <div class="bc-guide"></div>
+  </div>
+  <p class="note" id="bc-status"></p>
+
+  <div id="bc-manual-row" class="search-row hidden">
+    <input type="number" id="bc-manual-input" inputmode="numeric" placeholder="バーコードの番号を入力(例: 4901330544218)">
+    <button class="btn primary" id="btn-bc-manual">この番号で調べる</button>
+  </div>
+
+  <button class="btn ghost" id="btn-bc-show-manual">番号を手で入力する</button>
+  <p class="field-note">登録済みの商品は通信なしですぐ出ます。初めての商品は Open Food Facts → AI検索の順に調べ、見つからなければパッケージの成分表示から手入力してください。一度登録すれば次からは読み取るだけです。</p>
 </section>
 
 <!-- ============ 食事日記 ============ -->
@@ -349,16 +406,19 @@ window.addEventListener('unhandledrejection', function (e) {
   </div>
 </div>
 
-<script src="js/version.js?v=0.2.0"></script>
-<script src="js/db.js?v=0.2.0"></script>
-<script src="js/foods.js?v=0.2.0"></script>
-<script src="js/calc.js?v=0.2.0"></script>
-<script src="js/menus.js?v=0.2.0"></script>
-<script src="js/ai.js?v=0.2.0"></script>
-<script src="js/meals.js?v=0.2.0"></script>
-<script src="js/weight.js?v=0.2.0"></script>
-<script src="js/exercise.js?v=0.2.0"></script>
-<script src="js/streak.js?v=0.2.0"></script>
-<script src="js/app.js?v=0.2.0"></script>
+<script src="js/version.js?v=0.3.0"></script>
+<script src="js/db.js?v=0.3.0"></script>
+<script src="js/foods.js?v=0.3.0"></script>
+<script src="js/calc.js?v=0.3.0"></script>
+<script src="js/menus.js?v=0.3.0"></script>
+<script src="js/ai.js?v=0.3.0"></script>
+<script src="js/combo.js?v=0.3.0"></script>
+<script src="js/meals.js?v=0.3.0"></script>
+<script src="js/recipes.js?v=0.3.0"></script>
+<script src="js/barcode.js?v=0.3.0"></script>
+<script src="js/weight.js?v=0.3.0"></script>
+<script src="js/exercise.js?v=0.3.0"></script>
+<script src="js/streak.js?v=0.3.0"></script>
+<script src="js/app.js?v=0.3.0"></script>
 </body>
 </html>

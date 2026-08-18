@@ -118,6 +118,9 @@ const Profile = {
 /* ---------- 画面遷移 ---------- */
 
 function showScreen(name) {
+  // カメラを掴んだままにしない(バーコード画面から離れたら必ず止める)
+  if (name !== 'barcode' && typeof Barcode !== 'undefined') Barcode.stop();
+
   document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
   const el = document.getElementById(`screen-${name}`);
   if (!el) { showErrorBanner(`画面 ${name} がありません`); return; }
@@ -127,6 +130,7 @@ function showScreen(name) {
   if (name === 'home') renderHome();
   if (name === 'meal-add') { Meals.renderSlotTabs(); Meals.renderList(); }
   if (name === 'meal-set') SetBuilder.render();
+  if (name === 'recipe-edit') Recipes.render();
   if (name === 'diary') Meals.renderDiary();
   if (name === 'weight') Weight.render();
   if (name === 'exercise') Exercise.render();
@@ -319,6 +323,22 @@ function hardReload() {
 
 /* ---------- 起動 ---------- */
 
+/** セット/レシピ画面のボタンと検索欄をまとめて配線する(構造が同じなので共通化) */
+function bindCombo(builder, openBtnId, newItemBtnId, saveRecordBtnId, saveBtnId) {
+  const p = builder.cfg.prefix;
+  document.getElementById(openBtnId).addEventListener('click', () => builder.openFresh());
+  const search = document.getElementById(`${p}-search`);
+  search.addEventListener('input', () => builder.renderResults());
+  document.getElementById(`${p}-search-clear`).addEventListener('click', () => {
+    search.value = ''; builder.renderResults(); search.focus();
+  });
+  document.getElementById(newItemBtnId).addEventListener('click', () => {
+    Meals.openNew(search.value.trim(), builder);
+  });
+  document.getElementById(saveRecordBtnId).addEventListener('click', () => builder.save(true));
+  document.getElementById(saveBtnId).addEventListener('click', () => builder.save(false));
+}
+
 function bindEvents() {
   document.querySelectorAll('[data-nav]').forEach((b) => {
     b.addEventListener('click', () => showScreen(b.dataset.nav));
@@ -339,24 +359,21 @@ function bindEvents() {
   document.getElementById('btn-mn-save-record').addEventListener('click', () => Meals.saveNew(true));
   document.getElementById('btn-mn-save').addEventListener('click', () => Meals.saveNew(false));
   document.getElementById('mn-back').addEventListener('click', () => {
-    const dest = Meals.newForSet ? 'meal-set' : 'meal-add';
-    Meals.newForSet = false;
+    const dest = Meals.newCombo ? Meals.newCombo.cfg.screen : 'meal-add';
+    Meals.newCombo = null;
     showScreen(dest);
   });
   document.getElementById('btn-ai-search').addEventListener('click', () => AiUI.start());
 
-  // セット作成
-  document.getElementById('btn-meal-set').addEventListener('click', () => SetBuilder.openFresh());
-  const msSearch = document.getElementById('ms-search');
-  msSearch.addEventListener('input', () => SetBuilder.renderResults());
-  document.getElementById('ms-search-clear').addEventListener('click', () => {
-    msSearch.value = ''; SetBuilder.renderResults(); msSearch.focus();
-  });
-  document.getElementById('btn-ms-new-item').addEventListener('click', () => {
-    Meals.openNew(msSearch.value.trim(), true);
-  });
-  document.getElementById('btn-ms-save-record').addEventListener('click', () => SetBuilder.save(true));
-  document.getElementById('btn-ms-save').addEventListener('click', () => SetBuilder.save(false));
+  // セット作成 / レシピ登録(どちらも js/combo.js の共通部品)
+  bindCombo(SetBuilder, 'btn-meal-set', 'btn-ms-new-item', 'btn-ms-save-record', 'btn-ms-save');
+  bindCombo(Recipes, 'btn-meal-recipe', 'btn-rc-new-item', 'btn-rc-save-record', 'btn-rc-save');
+  document.getElementById('rc-serves').addEventListener('input', () => Recipes.renderTotal());
+
+  // バーコード
+  document.getElementById('btn-meal-barcode').addEventListener('click', () => Barcode.open());
+  document.getElementById('btn-bc-show-manual').addEventListener('click', () => Barcode.showManual());
+  document.getElementById('btn-bc-manual').addEventListener('click', () => Barcode.manualLookup());
 
   // 量シート
   document.querySelectorAll('#as-quick [data-f]').forEach((b) => {

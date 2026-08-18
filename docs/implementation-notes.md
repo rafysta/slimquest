@@ -1,6 +1,6 @@
 # SlimQuest 実装ノート
 
-**対象バージョン: v0.2.0 (2026-08-18) / Phase 1 + セット登録・AI検索**
+**対象バージョン: v0.3.0 (2026-08-18) / Phase 1 + Phase 2 完了**
 
 新しい会話を始めるときに、まずこのファイルを読めば現状が把握できるようにしたものです。
 機能を追加・変更したら、このファイルも必ず更新してください。
@@ -42,14 +42,14 @@
 | `meal-add` | 食事入力(区分タブ・検索・よく食べるもの) | ✅ |
 | `meal-new` | 新規メニュー登録(手動 + AI検索で候補入力) | ✅ v0.2.0 でAI検索を追加 |
 | `meal-set` | セット(組み合わせ)メニューの作成 | ✅ v0.2.0 |
+| `recipe-edit` | レシピ登録(材料 + 何人分) | ✅ v0.3.0 |
+| `barcode` | バーコード読み取り | ✅ v0.3.0 |
 | `diary` | 食事日記(日送り・削除) | ✅ |
 | `weight` | 体重の記録とグラフ | ✅ |
 | `exercise` | 運動の記録 | ✅ |
 | `badges` | 連続記録とバッジ | ✅ |
 | `settings` | プロフィール・目標・自動計上・データ削除 | ✅ |
 | `about` | バージョン・更新履歴・完全リセット | ✅ |
-| `barcode` | バーコード読み取り | ⬜ Phase 2 |
-| `recipe-edit` | レシピ登録(何人分作るか) | ⬜ Phase 2 |
 | `pantry` | 手持ち食材リスト | ⬜ Phase 3 |
 | `suggest` | 食材からの料理提案 | ⬜ Phase 3 |
 | `shopping` | 買い物チェックリスト | ⬜ Phase 3 |
@@ -70,7 +70,7 @@
 | `sq_streak` | `{count, best, last, total}` |
 | `sq_badges` | `{ [badgeId]: 解除日 }` |
 | `sq_auto_last` | 自転車通勤を自動計上した最後の日(二重計上の防止) |
-| `sq_ai_key` | Anthropic APIキー(AI検索用。設定画面で登録。データ全消去では消さない) |
+| `sq_ai_key` | Anthropic APIキー(AI検索・バーコード照会用。設定画面で登録。データ全消去では消さない) |
 | (Phase 2) `sq_claude_key` / `sq_openai_key` / `sq_ai_provider` / `sq_ai_model` | AI設定 |
 
 **同梱データの使用回数を localStorage に置いている理由**: foods.js の食品は IndexedDB に入れていない
@@ -188,13 +188,61 @@
 - APIキー未設定なら設定画面へ誘導。キーがなくてもアプリの他機能は全部動く
 - SW は `api.anthropic.com` をパススルー済み(v0.1.0 から準備されていた)
 
+### レシピとバーコード(v0.3.0 / Phase 2 追加)
+
+**組み合わせの共通部品(`js/combo.js`)** — セットとレシピは「複数のメニューを選んで
+1つのメニューを作る」点がまったく同じなので、`makeComboBuilder(cfg)` に一本化した。
+画面ごとの違いは cfg だけ:
+
+| | セット (`SetBuilder`) | レシピ (`Recipes`) |
+|---|---|---|
+| prefix / 画面 | `ms` / `meal-set` | `rc` / `recipe-edit` |
+| origin / base | `set` / `1セット` | `recipe` / `1人分` |
+| 人数で割る | しない | する(既定 **2**) |
+| 必要な部品数 | 2つ以上 | 1つ以上 |
+
+要素IDは `#<prefix>-name / -items / -total / -search / -search-clear / -results`(+レシピは `-serves`)
+の規約で引く。配線は `app.js` の `bindCombo()` が両方まとめて行う。
+
+**レシピ(`js/recipes.js`)**
+
+- 「2人分作って食べるのは1人分」が生活の前提なので、何人分作るかの既定値は 2
+- menus に保存される kcal/PFC は **合計 ÷ 人数 = 1人分**。`serves` に人数を持つ
+- `ingredients` には **作った全体ぶん** の材料を入れる(1人分に割らない)。
+  Phase 3 の買い物リストがそのまま材料として使えるようにするため
+- 量シートの内訳は `serves > 1` なら「材料(2人分)」と出す(1人分の値との対応を誤解させないため)
+- レシピはセットの部品にできる(肉じゃが + ごはん など)。逆にセットは部品にできない
+
+**バーコード(`js/barcode.js`)**
+
+照会は4段階。上から順に試し、見つかった時点で止める:
+
+1. **menus の jan 一致** … 通信なしで即ヒットし、そのまま量シートを開く(これが本命の経路)
+2. **Open Food Facts** … `/api/v2/product/{code}.json`。100gあたりの値なので基準量は `100g`。
+   日本の商品は収録が薄いため、未収録・カロリー空・通信失敗はすべて **静かに次へ進む**
+3. **AIのWeb検索** … `AI.searchByBarcode(code)`。APIキーがあるときだけ。
+   **特定できないときは候補を空で返させる**(存在しない商品を作られると気付かずに登録されるため)
+4. **手入力** … 名前空 + jan だけ入れて `meal-new` を開く
+
+どの経路でも `Meals.openNew({..., jan})` 経由でユーザーが確認してから保存し、menus に `jan` が付く。
+次回からは①で即ヒットする。
+
+- 読み取りは Android Chrome 標準の `BarcodeDetector`(外部ライブラリなし)。
+  `getSupportedFormats()` で端末が対応する形式に絞ってから生成する
+- **非対応端末では番号の手入力にフォールバック**するので機能自体は使える
+- カメラは `showScreen()` の先頭で `Barcode.stop()` を呼び、**barcode 画面以外へ移ったら必ず停止**する
+- SW は `openfoodfacts.org` をパススルー済み(v0.1.0 から準備されていた)
+
 ## 4. 読み込み順序
 
 ```
-version → db → foods → calc → menus → ai → meals → weight → exercise → streak → app
+version → db → foods → calc → menus → ai → combo → meals → recipes → barcode
+        → weight → exercise → streak → app
 ```
 
-(`ai.js` は `meals.js` より前。`AiUI` を `Meals.openNew` が呼ぶため)
+`ai.js` と `combo.js` は `meals.js` より前(`AiUI` を `Meals.openNew` が、
+`makeComboBuilder` を `SetBuilder` の定義が使うため)。
+`recipes.js` / `barcode.js` は `meals.js` より後(`Meals` を参照するため)。
 
 `app.js` が全モジュールに依存するため必ず最後。Phase 2 以降で追加するファイルの位置:
 
@@ -241,17 +289,7 @@ version → db → foods → calc → ai → menus → meals → recipes → bar
 
 ## 7. 次に作るもの
 
-### Phase 2 — AI と入力強化
-
-- `js/ai.js`(ConfQuest の ai.js を流用): Claude / OpenAI 切替、**JSONモード**での構造化出力、
-  **Web検索ツール付き呼び出し**。APIキーは設定画面から localStorage へ
-- `meal-new` に「AIに推定させる」「Webで調べる」ボタンを追加(いまは手入力のみ)
-- `js/barcode.js`: `BarcodeDetector`(Android Chrome標準、EAN-13)で読み取り →
-  **① menus の jan 一致 → ② Open Food Facts API → ③ AIのWeb検索 → ④ 手動入力** の順に照会。
-  どの経路でも結果は menus に `jan` 付きで保存し、次回は①で即ヒットさせる。
-  Open Food Facts は日本の商品の収録が薄いので、空でもエラーにせず静かに③へ進むこと
-- `js/recipes.js`: 食材と分量からレシピを登録。**何人分作るかの既定値は2**、
-  記録されるのは合計÷人数の1人分
+(Phase 1 / Phase 2 は完了。残りは Phase 3 以降)
 
 ### Phase 3 — 提案・買い物・写真
 

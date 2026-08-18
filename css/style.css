@@ -370,9 +370,32 @@ body {
   color: var(--text); font-size: 1rem;
 }
 .set-ctrls .set-del { color: var(--dim); background: transparent; }
-#ms-total { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 10px 14px; }
-#ms-total b { color: var(--accent); font-size: 1.05rem; }
-#ms-total .note { margin: 0; }
+#ms-total, #rc-total { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 10px 14px; }
+#ms-total b, #rc-total b { color: var(--accent); font-size: 1.05rem; }
+#ms-total .note, #rc-total .note { margin: 0; }
+.cb-whole { width: 100%; font-size: .78rem; }
+.add-ways { display: flex; flex-direction: column; gap: 2px; }
+.add-ways .btn { text-align: left; padding-left: 14px; }
+
+/* ---------- バーコード ---------- */
+.bc-frame {
+  position: relative; width: 100%; aspect-ratio: 4 / 3;
+  background: #000; border: 1px solid var(--line);
+  border-radius: 14px; overflow: hidden; margin-bottom: 10px;
+}
+#bc-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bc-guide {
+  position: absolute; left: 8%; right: 8%; top: 34%; height: 32%;
+  border: 2px solid var(--accent); border-radius: 10px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, .35);
+}
+#bc-manual-row { display: flex; flex-direction: column; gap: 8px; }
+#bc-manual-row input {
+  width: 100%; min-height: 50px; padding: 0 14px;
+  background: var(--card); color: var(--text);
+  border: 1px solid var(--line); border-radius: 12px; font-size: 1rem;
+}
+#bc-manual-row .btn { margin-top: 0; }
 
 /* ---------- AI検索 ---------- */
 .ai-box { margin: 10px 0 4px; display: flex; flex-direction: column; gap: 6px; }
