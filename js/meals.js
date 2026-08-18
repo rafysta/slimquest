@@ -235,6 +235,7 @@ const Meals = {
    */
   openNew(prefill, combo) {
     this.newCombo = combo || null;
+    this.editing = null;
     const pre = typeof prefill === 'string' ? { name: prefill } : (prefill || {});
     this.pendingJan = pre.jan || '';
     const nameEl = document.getElementById('mn-name');
@@ -253,12 +254,97 @@ const Meals = {
     document.getElementById('btn-mn-save-record').classList.toggle('hidden', !!this.newCombo);
     document.getElementById('btn-mn-save').textContent =
       this.newCombo ? `登録して${this.newCombo.cfg.itemWord}に追加` : '登録だけする';
+    document.getElementById('btn-mn-delete').classList.add('hidden');
+    document.getElementById('mn-ing').classList.add('hidden');
+    document.getElementById('mn-title').textContent = '新しいメニュー';
     document.getElementById('mn-jan').textContent =
       this.pendingJan ? `バーコード: ${this.pendingJan}` : '';
     showScreen('meal-new');
   },
 
+  /* ---------- 登録済みメニューの編集 ---------- */
+
+  /** 編集中のメニュー(null なら新規登録モード) */
+  editing: null,
+
+  /**
+   * 同じフォームを使い回して編集する。セット/レシピの材料そのものは直せないが、
+   * 名前とカロリーは直せるので、間違えて登録したものを片付けるには十分。
+   * 材料は保持したまま保存する(記録済みの食事には影響しない)。
+   */
+  openEdit(menuId) {
+    const m = Menus.byId(menuId);
+    if (!m) return;
+    if (m.id < 0) { appAlert('同梱の食品データは変更できません。似たものを新しく登録してください。'); return; }
+    this.newCombo = null;
+    this.editing = m;
+    this.pendingJan = m.jan || '';
+    const nameEl = document.getElementById('mn-name');
+    nameEl.value = m.name;
+    delete nameEl.dataset.origin;
+    document.getElementById('mn-base').value = m.base || '1人前';
+    const set = (id, v) => { document.getElementById(id).value = String(v === undefined ? '' : v); };
+    set('mn-kcal', m.kcal);
+    set('mn-p', m.p);
+    set('mn-f', m.f);
+    set('mn-c', m.c);
+    AiUI.reset();
+    document.getElementById('btn-mn-save-record').classList.add('hidden');
+    document.getElementById('btn-mn-save').textContent = '変更を保存する';
+    document.getElementById('btn-mn-delete').classList.remove('hidden');
+    document.getElementById('mn-title').textContent = 'メニューを直す';
+    document.getElementById('mn-jan').textContent = m.jan ? `バーコード: ${m.jan}` : '';
+    const ing = document.getElementById('mn-ing');
+    if (m.ingredients && m.ingredients.length) {
+      ing.textContent = `材料・内訳: ${m.ingredients.map((x) => x.name).join(' + ')}` +
+        '(材料の組み合わせ自体は変えられません。作り直したいときは新しく登録してください)';
+      ing.classList.remove('hidden');
+    } else {
+      ing.classList.add('hidden');
+    }
+    showScreen('meal-new');
+  },
+
+  async saveEdit() {
+    const m = this.editing;
+    if (!m) return;
+    const name = document.getElementById('mn-name').value.trim();
+    if (!name) { appAlert('メニュー名を入力してください'); return; }
+    const kcal = Number(document.getElementById('mn-kcal').value);
+    if (!kcal || kcal <= 0) { appAlert('カロリーを入力してください'); return; }
+    const rec = Object.assign({}, m, {
+      name,
+      kana: Calc.norm(name),
+      base: document.getElementById('mn-base').value.trim() || '1人前',
+      kcal: Math.round(kcal),
+      p: Calc.r1(document.getElementById('mn-p').value),
+      f: Calc.r1(document.getElementById('mn-f').value),
+      c: Calc.r1(document.getElementById('mn-c').value)
+    });
+    await Menus.update(rec);
+    this.editing = null;
+    showToast(`${rec.name} を保存しました`);
+    MenuList.render();
+    showScreen('menu-list');
+  },
+
+  async deleteEditing() {
+    const m = this.editing;
+    if (!m) return;
+    const ok = await appConfirm(
+      `「${m.name}」をメニューから消します。\n\n` +
+      '食事日記に残っている過去の記録はそのままです(記録には登録時の数値が入っているため)。',
+      'メニューの削除');
+    if (!ok) return;
+    await Menus.remove(m.id);
+    this.editing = null;
+    showToast(`${m.name} を削除しました`);
+    MenuList.render();
+    showScreen('menu-list');
+  },
+
   async saveNew(alsoRecord) {
+    if (this.editing) { await this.saveEdit(); return; }
     const nameEl = document.getElementById('mn-name');
     const name = nameEl.value.trim();
     if (!name) { appAlert('メニュー名を入力してください'); return; }
@@ -440,6 +526,58 @@ const Meals = {
  * 中身の作りはレシピ登録と共通(js/combo.js)。違いは人数で割らないことだけ。
  */
 
+/* ---------- 登録済みメニューの一覧(整理用)----------
+ *
+ * 間違えて登録したメニューが「よく食べるもの」に残り続けるのが地味に困るので、
+ * 一覧から直接 編集/削除 できるようにした。編集画面は meal-new を使い回す。
+ * 同梱食品(id が負)はアプリ更新のたびに作り直されるため、ここには出さない。
+ */
+
+const ORIGIN_LABEL = {
+  manual: '手入力', ai: 'AI検索', barcode: 'バーコード', off: 'バーコード',
+  set: 'セット', recipe: 'レシピ', suggest: '献立提案'
+};
+
+const MenuList = {
+  render() {
+    const q = document.getElementById('ml-search').value.trim();
+    const box = document.getElementById('ml-list');
+    const all = Menus._custom.slice().sort((a, b) => (b.id || 0) - (a.id || 0));
+    const list = q
+      ? Menus.search(q, 100).filter((m) => m.id > 0)
+      : all;
+
+    document.getElementById('ml-count').textContent = q
+      ? `「${q}」の候補 ${list.length}件`
+      : `登録したメニュー(${all.length})`;
+
+    if (!list.length) {
+      box.innerHTML = q
+        ? '<p class="empty small">見つかりませんでした。</p>'
+        : '<p class="empty small">まだ自分で登録したメニューがありません。' +
+          '食事入力の「＋ 新しく登録する」やレシピ登録で作ったものがここに並びます。</p>';
+      return;
+    }
+
+    box.innerHTML = list.map((m) => {
+      const u = Menus.useOf(m.id);
+      return `
+      <button class="food-row" data-ml="${m.id}">
+        <span class="food-main">
+          <span class="food-name">${escapeHtml(m.name)}</span>
+          <span class="food-base">${escapeHtml(m.base)} · ${escapeHtml(ORIGIN_LABEL[m.origin] || m.origin || '手入力')}` +
+        `${u.n ? ` · ${u.n}回` : ' · 未使用'}</span>
+        </span>
+        <span class="food-kcal">${m.kcal}<small>kcal</small></span>
+      </button>`;
+    }).join('');
+
+    box.querySelectorAll('[data-ml]').forEach((b) => {
+      b.addEventListener('click', () => Meals.openEdit(Number(b.dataset.ml)));
+    });
+  }
+};
+
 const SetBuilder = makeComboBuilder({
   prefix: 'ms',
   screen: 'meal-set',
@@ -453,4 +591,4 @@ const SetBuilder = makeComboBuilder({
   autoName: (items) => items.map((x) => x.name).join('+')
 });
 
-if (typeof module !== 'undefined' && module.exports) module.exports = { Meals, SLOTS, SetBuilder };
+if (typeof module !== 'undefined' && module.exports) module.exports = { Meals, SLOTS, SetBuilder, MenuList };

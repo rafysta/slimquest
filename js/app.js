@@ -141,6 +141,7 @@ function showScreen(name) {
   if (name === 'belly') Belly.onShow();
   if (name === 'belly-view') Belly.onShowView();
   if (name === 'badges') Streak.render();
+  if (name === 'menu-list') MenuList.render();
   if (name === 'settings') loadSettings();
   if (name === 'about') renderAbout();
 }
@@ -218,6 +219,7 @@ function loadSettings() {
   document.getElementById('st-commute-on').checked = !!(p.commute && p.commute.on);
   set('st-ai-key', AI.getKey());
   renderSettingsInfo();
+  updateBackupInfo();
 }
 
 function renderSettingsInfo() {
@@ -349,6 +351,152 @@ function bindCombo(builder, openBtnId, newItemBtnId, saveRecordBtnId, saveBtnId)
   document.getElementById(saveBtnId).addEventListener('click', () => builder.save(false));
 }
 
+/* ---------- バックアップ / 復元 ---------- */
+
+function backupOptions() {
+  return {
+    photos: document.getElementById('bk-photos').checked,
+    keys: document.getElementById('bk-keys').checked
+  };
+}
+
+function updateBackupInfo() {
+  const el = document.getElementById('backup-last');
+  const text = Backup.lastBackupText(Backup.lastBackupAt());
+  el.textContent = text;
+  el.classList.toggle('warn-text', text.indexOf('⚠') >= 0);
+}
+
+function bindBackup() {
+  const status = () => document.getElementById('backup-status');
+
+  // ファイルを共有できる端末(主にAndroid)だけ「共有して保存」を出す
+  const shareBtn = document.getElementById('btn-backup-share');
+  if (navigator.canShare && navigator.share) shareBtn.classList.remove('hidden');
+
+  document.getElementById('btn-backup-export').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-backup-export');
+    const opt = backupOptions();
+
+    /* 保存先を選ぶダイアログは「クリックした直後」しか開けない(ZIPを作ってから
+     * 呼ぶと権限エラーになる)ので、作る前に先に聞く。PCのChrome/Edgeなら
+     * Nextcloudの同期フォルダを直接選べるので、あとから移す手間がなくなる。 */
+    let handle = null;
+    if (window.showSaveFilePicker) {
+      try {
+        handle = await window.showSaveFilePicker({
+          id: 'slimquest-backup',
+          suggestedName: Backup.fileName(opt.photos),
+          types: [{ description: 'SlimQuest バックアップ', accept: { 'application/zip': ['.zip'] } }]
+        });
+      } catch (err) {
+        if (err && err.name === 'AbortError') { status().textContent = '保存をキャンセルしました。'; return; }
+        handle = null;   // 使えない環境ならダウンロードで続行する
+      }
+    }
+
+    btn.disabled = true;
+    status().textContent = '準備しています…';
+    try {
+      const r = await Backup.create(Object.assign({}, opt, {
+        onProgress: (t) => { status().textContent = t; }
+      }));
+      if (handle) {
+        status().textContent = '書き込んでいます…';
+        const w = await handle.createWritable();
+        await w.write(r.blob);
+        await w.close();
+        status().textContent = `✓ 「${handle.name}」に保存しました(${Backup.fmtBytes(r.bytes)})。`;
+      } else {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(r.blob);
+        a.download = r.name;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 20000);
+        status().textContent = `✓ ${r.name}(${Backup.fmtBytes(r.bytes)})を保存しました。` +
+          'ダウンロードフォルダにあるので、Nextcloud などに移しておいてください。';
+      }
+      Backup.markSaved();
+      updateBackupInfo();
+    } catch (err) {
+      status().textContent = `⚠ バックアップを作成できませんでした: ${err.message}`;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  shareBtn.addEventListener('click', async () => {
+    const opt = backupOptions();
+    shareBtn.disabled = true;
+    status().textContent = '準備しています…';
+    try {
+      const r = await Backup.create(Object.assign({}, opt, {
+        onProgress: (t) => { status().textContent = t; }
+      }));
+      const file = new File([r.blob], r.name, { type: 'application/zip' });
+      if (!navigator.canShare({ files: [file] })) {
+        status().textContent = '⚠ この端末ではファイルを共有できません。「バックアップを作成」をお使いください。';
+        return;
+      }
+      await navigator.share({ files: [file], title: r.name });
+      // 共有シートでキャンセルされたかは分からないので、送った前提で記録する
+      Backup.markSaved();
+      updateBackupInfo();
+      status().textContent = `✓ ${r.name}(${Backup.fmtBytes(r.bytes)})を共有しました。`;
+    } catch (err) {
+      if (err && err.name === 'AbortError') { status().textContent = '共有をキャンセルしました。'; return; }
+      status().textContent = `⚠ 共有できませんでした: ${err.message}`;
+    } finally {
+      shareBtn.disabled = false;
+    }
+  });
+
+  document.getElementById('btn-backup-import')
+    .addEventListener('click', () => document.getElementById('backup-file').click());
+
+  document.getElementById('backup-file').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';   // 同じファイルをもう一度選べるように
+    if (!file) return;
+    status().textContent = 'バックアップの中身を確認しています…';
+    let insp;
+    try {
+      insp = await Backup.inspect(file);
+    } catch (err) {
+      status().textContent = `⚠ ${err.message}`;
+      return;
+    }
+    const hasPhotos = (insp.meta.photos || []).length > 0;
+    const ok = await appConfirm(
+      `このバックアップの内容:\n\n${Backup.summarize(insp.meta).join('\n')}\n\n` +
+      'この端末の記録と設定をすべて置き換えます。いまの状態は元に戻せません。\n' +
+      (hasPhotos
+        ? 'お腹の写真も置き換えられます。'
+        : 'このバックアップに写真は入っていないので、この端末の写真はそのまま残ります。'),
+      '⬆ バックアップから復元');
+    if (!ok) { status().textContent = '復元をキャンセルしました。'; return; }
+
+    status().textContent = '復元しています…';
+    try {
+      const st = await Backup.restore(insp, {
+        keys: !!insp.meta.includeKeys,
+        onProgress: (t) => { status().textContent = t; }
+      });
+      const s = st.stores || {};
+      await appAlert(
+        `復元しました。\n\n設定: ${st.keys}項目\n食事: ${s.meals || 0}件\n体重: ${s.weights || 0}件\n` +
+        `運動: ${s.exercises || 0}件\nメニュー: ${s.menus || 0}件\n` +
+        `写真: ${st.photosKept ? 'この端末のものをそのまま残しました' : `${st.photos}枚`}` +
+        (st.missing ? `\n⚠ 見つからなかった写真: ${st.missing}件` : '') +
+        '\n\nOKを押すとアプリを読み込み直します。',
+        '✓ 復元完了');
+      hardReload();
+    } catch (err) {
+      status().textContent = `⚠ 復元に失敗しました: ${err.message}`;
+    }
+  });
+}
+
 function bindEvents() {
   document.querySelectorAll('[data-nav]').forEach((b) => {
     b.addEventListener('click', () => showScreen(b.dataset.nav));
@@ -371,9 +519,20 @@ function bindEvents() {
   document.getElementById('btn-mn-save-record').addEventListener('click', () => Meals.saveNew(true));
   document.getElementById('btn-mn-save').addEventListener('click', () => Meals.saveNew(false));
   document.getElementById('mn-back').addEventListener('click', () => {
-    const dest = Meals.newCombo ? Meals.newCombo.cfg.screen : 'meal-add';
+    const dest = Meals.editing ? 'menu-list'
+      : Meals.newCombo ? Meals.newCombo.cfg.screen
+        : 'meal-add';
     Meals.newCombo = null;
+    Meals.editing = null;
     showScreen(dest);
+  });
+  document.getElementById('btn-mn-delete').addEventListener('click', () => Meals.deleteEditing());
+
+  // メニューの整理
+  const mlSearch = document.getElementById('ml-search');
+  mlSearch.addEventListener('input', () => MenuList.render());
+  document.getElementById('ml-search-clear').addEventListener('click', () => {
+    mlSearch.value = ''; MenuList.render(); mlSearch.focus();
   });
   document.getElementById('btn-ai-search').addEventListener('click', () => AiUI.start());
 
@@ -466,6 +625,7 @@ function bindEvents() {
 
   // 設定
   document.getElementById('btn-st-save').addEventListener('click', () => saveSettings());
+  bindBackup();
   document.getElementById('btn-force-reset').addEventListener('click', async () => {
     if (!await appConfirm('キャッシュを消して再読み込みします。記録したデータは消えません。', '完全リセット')) return;
     await purgeAll();
@@ -475,7 +635,15 @@ function bindEvents() {
     if (!await appConfirm('食事・体重・運動の記録と設定をすべて削除します。取り消せません。', 'データを全消去')) return;
     await Promise.all(['menus', 'meals', 'weights', 'exercises', 'photos', 'shopping', 'pantry', 'ingWords']
       .map((s) => DB.clear(s)));
-    ['sq_profile', 'sq_use', 'sq_streak', 'sq_badges', 'sq_auto_last'].forEach((k) => localStorage.removeItem(k));
+    // APIキー以外の sq_* をすべて消す(キーごとに列挙すると消し忘れが出るため)
+    const keep = AI.getKey();
+    const del = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf('sq_') === 0) del.push(k);
+    }
+    del.forEach((k) => localStorage.removeItem(k));
+    if (keep) AI.setKey(keep);
     showToast('すべて削除しました');
     setTimeout(hardReload, 600);
   });

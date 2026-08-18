@@ -8,7 +8,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="css/style.css?v=0.4.1">
+<link rel="stylesheet" href="css/style.css?v=0.5.0">
 <script>
 /* スクリプト読み込み中のエラーも拾う(app.jsが画面に出す) */
 window.__earlyErrors = [];
@@ -139,7 +139,7 @@ window.addEventListener('unhandledrejection', function (e) {
 <section id="screen-meal-new" class="screen">
   <header class="sub-header">
     <button class="back" id="mn-back">←</button>
-    <h2>新しいメニュー</h2>
+    <h2 id="mn-title">新しいメニュー</h2>
   </header>
   <div class="card form">
     <p class="note" id="mn-jan"></p>
@@ -154,8 +154,10 @@ window.addEventListener('unhandledrejection', function (e) {
       <label>C (g)<input type="number" id="mn-c" inputmode="decimal" step="0.1"></label>
     </div>
     <p class="field-note">PFC(たんぱく質・脂質・炭水化物)は分からなければ空でも構いません。</p>
+    <p class="field-note hidden" id="mn-ing"></p>
     <button class="btn primary" id="btn-mn-save-record">登録して今すぐ記録</button>
     <button class="btn ghost" id="btn-mn-save">登録だけする</button>
+    <button class="btn danger hidden" id="btn-mn-delete">このメニューを削除する</button>
   </div>
 </section>
 
@@ -505,10 +507,42 @@ window.addEventListener('unhandledrejection', function (e) {
   </div>
 
   <div class="card">
-    <h3>データ</h3>
-    <button class="btn danger" id="btn-wipe-data">すべての記録を削除</button>
-    <p class="field-note">バックアップ機能は今後のバージョンで追加します。</p>
+    <h3>バックアップと復元</h3>
+    <p class="note">記録は端末の中にしかありません。<b>機種変更やブラウザのデータ削除で消えます。</b>ときどきZIPに書き出して、Nextcloud などに置いておいてください。</p>
+    <label class="check"><input type="checkbox" id="bk-photos" checked> お腹の写真も入れる</label>
+    <label class="check"><input type="checkbox" id="bk-keys"> APIキーも入れる(他人に渡さない場合のみ)</label>
+    <button class="btn primary" id="btn-backup-export">⬇ バックアップを作成</button>
+    <button class="btn ghost hidden" id="btn-backup-share">📤 共有して保存(Nextcloud など)</button>
+    <button class="btn ghost" id="btn-backup-import">⬆ バックアップから復元</button>
+    <input type="file" id="backup-file" accept=".zip,application/zip" class="hidden">
+    <p class="field-note" id="backup-status"></p>
+    <p class="field-note" id="backup-last"></p>
+    <p class="field-note">PC(Chrome・Edge)では保存先を選ぶ画面が出るので、Nextcloud の同期フォルダを直接指定できます(次回からは同じフォルダが開きます)。スマホではダウンロードフォルダに入るので、「共有して保存」から Nextcloud アプリへ送るのが確実です。</p>
   </div>
+
+  <div class="card">
+    <h3>データ</h3>
+    <button class="btn ghost" data-nav="menu-list">📋 登録したメニューを整理する</button>
+    <button class="btn danger" id="btn-wipe-data">すべての記録を削除</button>
+    <p class="field-note">削除する前に、上のバックアップを取っておくことをおすすめします。</p>
+  </div>
+</section>
+
+<!-- ============ メニューの整理 ============ -->
+<section id="screen-menu-list" class="screen">
+  <header class="sub-header">
+    <button class="back" data-nav="meal-add">←</button>
+    <h2>メニューの整理</h2>
+  </header>
+  <p class="note">自分で登録したメニューの名前・カロリーを直したり、間違えて登録したものを消したりできます。同梱の食品データは変更できません。</p>
+
+  <div class="search-row">
+    <input type="search" id="ml-search" placeholder="メニューを検索" autocomplete="off">
+    <button id="ml-search-clear" class="search-clear">×</button>
+  </div>
+  <h3 class="list-title" id="ml-count">登録したメニュー</h3>
+  <div id="ml-list" class="food-list"></div>
+  <p class="field-note">メニューを消しても、過去の食事日記の記録は残ります(記録には登録時の数値がそのまま入っているため)。</p>
 </section>
 
 <!-- ============ アプリ情報 ============ -->
@@ -561,23 +595,24 @@ window.addEventListener('unhandledrejection', function (e) {
   </div>
 </div>
 
-<script src="js/version.js?v=0.4.1"></script>
-<script src="js/db.js?v=0.4.1"></script>
-<script src="js/foods.js?v=0.4.1"></script>
-<script src="js/calc.js?v=0.4.1"></script>
-<script src="js/menus.js?v=0.4.1"></script>
-<script src="js/ai.js?v=0.4.1"></script>
-<script src="js/combo.js?v=0.4.1"></script>
-<script src="js/meals.js?v=0.4.1"></script>
-<script src="js/recipes.js?v=0.4.1"></script>
-<script src="js/barcode.js?v=0.4.1"></script>
-<script src="js/weight.js?v=0.4.1"></script>
-<script src="js/exercise.js?v=0.4.1"></script>
-<script src="js/pantry.js?v=0.4.1"></script>
-<script src="js/shopping.js?v=0.4.1"></script>
-<script src="js/suggest.js?v=0.4.1"></script>
-<script src="js/belly.js?v=0.4.1"></script>
-<script src="js/streak.js?v=0.4.1"></script>
-<script src="js/app.js?v=0.4.1"></script>
+<script src="js/version.js?v=0.5.0"></script>
+<script src="js/db.js?v=0.5.0"></script>
+<script src="js/foods.js?v=0.5.0"></script>
+<script src="js/calc.js?v=0.5.0"></script>
+<script src="js/menus.js?v=0.5.0"></script>
+<script src="js/ai.js?v=0.5.0"></script>
+<script src="js/combo.js?v=0.5.0"></script>
+<script src="js/meals.js?v=0.5.0"></script>
+<script src="js/recipes.js?v=0.5.0"></script>
+<script src="js/barcode.js?v=0.5.0"></script>
+<script src="js/weight.js?v=0.5.0"></script>
+<script src="js/exercise.js?v=0.5.0"></script>
+<script src="js/pantry.js?v=0.5.0"></script>
+<script src="js/shopping.js?v=0.5.0"></script>
+<script src="js/suggest.js?v=0.5.0"></script>
+<script src="js/belly.js?v=0.5.0"></script>
+<script src="js/streak.js?v=0.5.0"></script>
+<script src="js/backup.js?v=0.5.0"></script>
+<script src="js/app.js?v=0.5.0"></script>
 </body>
 </html>

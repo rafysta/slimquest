@@ -570,3 +570,13 @@ body {
   background: rgba(251, 191, 36, .12); border: 1px solid var(--warn);
   color: var(--warn); font-size: .82rem;
 }
+
+/* ---------- バックアップ / メニューの整理(Phase 4) ---------- */
+/* .form の外にあるチェックボックスも1行ずつ縦に並べる */
+.card .check {
+  display: flex; align-items: center; gap: 10px;
+  margin: 10px 0; font-size: .85rem; color: var(--text);
+}
+.card .check input { width: 22px; height: 22px; margin: 0; flex: none; }
+#backup-status:not(:empty) { color: var(--text); }
+#backup-last.warn-text { color: var(--warn); }
