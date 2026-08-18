@@ -8,7 +8,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="css/style.css?v=0.3.0">
+<link rel="stylesheet" href="css/style.css?v=0.4.0">
 <script>
 /* スクリプト読み込み中のエラーも拾う(app.jsが画面に出す) */
 window.__earlyErrors = [];
@@ -56,6 +56,13 @@ window.addEventListener('unhandledrejection', function (e) {
       <span class="mini-label">🔥 記録</span>
       <span class="mini-val" id="streak-text">連続 0 日</span>
     </button>
+  </div>
+
+  <div class="quick-row four">
+    <button class="quick-btn" data-nav="pantry">🥬<span>手持ち</span></button>
+    <button class="quick-btn" data-nav="suggest">💡<span>献立</span></button>
+    <button class="quick-btn" data-nav="shopping">🛒<span id="home-shop">買い物</span></button>
+    <button class="quick-btn" data-nav="belly">📸<span>お腹</span></button>
   </div>
 
   <nav class="home-menu">
@@ -232,6 +239,121 @@ window.addEventListener('unhandledrejection', function (e) {
   <p class="field-note">登録済みの商品は通信なしですぐ出ます。初めての商品は Open Food Facts → AI検索の順に調べ、見つからなければパッケージの成分表示から手入力してください。一度登録すれば次からは読み取るだけです。</p>
 </section>
 
+<!-- ============ 手持ち食材 ============ -->
+<section id="screen-pantry" class="screen">
+  <header class="sub-header">
+    <button class="back" data-nav="home">←</button>
+    <h2>手持ち食材</h2>
+  </header>
+  <p class="note">いま家にある食材を並べておくと、これを使い切る献立をAIが提案します。数量までは持ちません(あるか無いかだけ)。</p>
+
+  <div class="search-row">
+    <input type="search" id="pt-input" placeholder="食材を入力(例: 豚こま切れ肉)" autocomplete="off">
+    <button id="pt-input-clear" class="search-clear">×</button>
+  </div>
+  <div id="pt-suggest" class="chip-row"></div>
+  <button class="btn ghost" id="btn-pt-add">＋ 入力したものを追加</button>
+
+  <h3 class="list-title" id="pt-count">いま家にあるもの</h3>
+  <div id="pt-list" class="chip-row"></div>
+
+  <div class="add-ways">
+    <button class="btn ghost" data-nav="suggest">💡 この食材で作れる料理を提案してもらう</button>
+    <button class="btn ghost" data-nav="shopping">🛒 買い物リストを見る</button>
+  </div>
+  <button class="btn danger" id="btn-pt-clear">リストを空にする</button>
+  <p class="field-note">一度入力した食材は次から候補チップに出るので、次回からはタップだけで足せます。買い物リストでチェックしたものは、そこから1タップでここに移せます。</p>
+</section>
+
+<!-- ============ 献立の提案 ============ -->
+<section id="screen-suggest" class="screen">
+  <header class="sub-header">
+    <button class="back" data-nav="home">←</button>
+    <h2>献立の提案</h2>
+  </header>
+
+  <div class="card" id="sg-pantry"></div>
+
+  <div class="card form">
+    <label>何人分作るか<input type="number" id="sg-serves" inputmode="numeric" min="1" step="1" value="2"></label>
+    <button class="btn primary" id="btn-sg-run">💡 この食材で作れる料理を出す</button>
+    <button class="btn ghost" data-nav="pantry">🥬 手持ち食材を直す</button>
+  </div>
+
+  <div id="sg-result"></div>
+  <p class="field-note">カロリーはAIの概算です。「これにする」でメニューに登録され、足りない材料だけが買い物リストに入ります。正確に出したいときは「材料を選んで正確に登録する」からレシピ登録画面へ進んでください。</p>
+</section>
+
+<!-- ============ 買い物リスト ============ -->
+<section id="screen-shopping" class="screen">
+  <header class="sub-header">
+    <button class="back" data-nav="home">←</button>
+    <h2>買い物リスト</h2>
+  </header>
+
+  <div class="search-row">
+    <input type="search" id="sp-input" placeholder="買うものを入力(例: 玉ねぎ)" autocomplete="off">
+    <button id="sp-input-clear" class="search-clear">×</button>
+  </div>
+  <div id="sp-suggest" class="chip-row"></div>
+  <button class="btn ghost" id="btn-sp-add">＋ 入力したものを追加</button>
+
+  <h3 class="list-title" id="sp-count">買うもの</h3>
+  <div id="sp-list"></div>
+
+  <div class="add-ways">
+    <button class="btn primary" id="btn-sp-to-pantry">✓ 買えたものを手持ち食材に移す</button>
+    <button class="btn ghost" id="btn-sp-clear-checked">チェックしたものをリストから消す</button>
+    <button class="btn ghost" data-nav="pantry">🥬 手持ち食材を見る</button>
+  </div>
+  <p class="field-note">チェックしたものは消えずに下へ沈みます(買い忘れの確認用)。買い終わったら「手持ち食材に移す」を押すと、次の献立提案でその材料が使われます。</p>
+</section>
+
+<!-- ============ お腹の定点撮影 ============ -->
+<section id="screen-belly" class="screen">
+  <header class="sub-header">
+    <button class="back" data-nav="home">←</button>
+    <h2>お腹の記録</h2>
+  </header>
+
+  <div class="belly-frame">
+    <video id="bl-video" playsinline muted></video>
+    <img id="bl-ghost" class="bl-ghost hidden" alt="">
+    <div class="bl-guide"></div>
+  </div>
+  <p class="note" id="bl-status"></p>
+
+  <label class="range-label">前回の写真の濃さ
+    <input type="range" id="bl-opacity" min="0" max="80" step="5" value="35">
+  </label>
+
+  <button class="btn primary" id="btn-bl-shoot">📸 撮影する</button>
+  <label class="btn ghost file-btn">🖼️ 保存済みの写真から選ぶ
+    <input type="file" id="bl-file" accept="image/*" capture="environment" hidden>
+  </label>
+  <button class="btn ghost" data-nav="belly-view">📈 変化を見る</button>
+  <p class="field-note">体重は水分で1〜2kg動くので、見た目の変化のほうが正直です。前回の写真を薄く重ねて同じ位置・同じ距離に合わせて撮ると、あとで並べたときに変化が分かります。写真は端末の中だけに保存され、どこにも送信されません。</p>
+</section>
+
+<!-- ============ 変化ビュー ============ -->
+<section id="screen-belly-view" class="screen">
+  <header class="sub-header">
+    <button class="back" data-nav="belly">←</button>
+    <h2>お腹の変化</h2>
+  </header>
+
+  <p class="empty hidden" id="bv-empty">まだ写真がありません。「お腹の記録」から撮影してください。</p>
+  <div class="bv-frame"><img id="bv-img" class="bv-img" alt=""></div>
+  <p class="note" id="bv-caption"></p>
+  <input type="range" id="bv-slider" min="0" max="0" value="0">
+
+  <div class="row2">
+    <button class="btn" id="btn-bv-play">▶ 再生</button>
+    <button class="btn ghost" id="btn-bv-del">この写真を削除</button>
+  </div>
+  <p class="field-note">スライダーを動かすと日付順に切り替わります。「再生」で最初からパラパラと流します。</p>
+</section>
+
 <!-- ============ 食事日記 ============ -->
 <section id="screen-diary" class="screen">
   <header class="sub-header">
@@ -406,19 +528,23 @@ window.addEventListener('unhandledrejection', function (e) {
   </div>
 </div>
 
-<script src="js/version.js?v=0.3.0"></script>
-<script src="js/db.js?v=0.3.0"></script>
-<script src="js/foods.js?v=0.3.0"></script>
-<script src="js/calc.js?v=0.3.0"></script>
-<script src="js/menus.js?v=0.3.0"></script>
-<script src="js/ai.js?v=0.3.0"></script>
-<script src="js/combo.js?v=0.3.0"></script>
-<script src="js/meals.js?v=0.3.0"></script>
-<script src="js/recipes.js?v=0.3.0"></script>
-<script src="js/barcode.js?v=0.3.0"></script>
-<script src="js/weight.js?v=0.3.0"></script>
-<script src="js/exercise.js?v=0.3.0"></script>
-<script src="js/streak.js?v=0.3.0"></script>
-<script src="js/app.js?v=0.3.0"></script>
+<script src="js/version.js?v=0.4.0"></script>
+<script src="js/db.js?v=0.4.0"></script>
+<script src="js/foods.js?v=0.4.0"></script>
+<script src="js/calc.js?v=0.4.0"></script>
+<script src="js/menus.js?v=0.4.0"></script>
+<script src="js/ai.js?v=0.4.0"></script>
+<script src="js/combo.js?v=0.4.0"></script>
+<script src="js/meals.js?v=0.4.0"></script>
+<script src="js/recipes.js?v=0.4.0"></script>
+<script src="js/barcode.js?v=0.4.0"></script>
+<script src="js/weight.js?v=0.4.0"></script>
+<script src="js/exercise.js?v=0.4.0"></script>
+<script src="js/pantry.js?v=0.4.0"></script>
+<script src="js/shopping.js?v=0.4.0"></script>
+<script src="js/suggest.js?v=0.4.0"></script>
+<script src="js/belly.js?v=0.4.0"></script>
+<script src="js/streak.js?v=0.4.0"></script>
+<script src="js/app.js?v=0.4.0"></script>
 </body>
 </html>

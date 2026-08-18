@@ -52,8 +52,23 @@ const AI = {
     return this._parse(await this._call(system, user));
   },
 
-  /** Messages API を1回叩いて、テキストブロックを連結して返す(Web検索ツール付き) */
-  async _call(system, user) {
+  /**
+   * Messages API を1回叩いて、テキストブロックを連結して返す。
+   * opts.web が false のときは Web検索ツールを付けない
+   * (献立提案のように、調べ物ではなく手持ちの材料から考える用途では検索は不要で、
+   *  付けると待ち時間が伸びるだけになるため)。
+   */
+  async _call(system, user, opts) {
+    const o = opts || {};
+    const body = {
+      model: this.MODEL,
+      max_tokens: o.maxTokens || 2000,
+      system,
+      messages: [{ role: 'user', content: user }]
+    };
+    if (o.web !== false) {
+      body.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 4 }];
+    }
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -62,13 +77,7 @@ const AI = {
         'anthropic-version': '2023-06-01',
         'anthropic-dangerous-direct-browser-access': 'true'
       },
-      body: JSON.stringify({
-        model: this.MODEL,
-        max_tokens: 2000,
-        system,
-        messages: [{ role: 'user', content: user }],
-        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 4 }]
-      })
+      body: JSON.stringify(body)
     });
 
     if (!res.ok) {
@@ -111,14 +120,73 @@ const AI = {
     return this._parse(res);
   },
 
-  /** 応答テキストからJSONを取り出す(前後に余計な文が付いていても耐える) */
-  _parse(text) {
-    const s = text.indexOf('{');
-    const e = text.lastIndexOf('}');
+  /**
+   * 手持ち食材から献立を提案させる。
+   * ctx = { pantry: [食材名], recent: [最近食べた料理名], serves: 何人分, targetKcal }
+   * 戻り値: { dishes: [{name, kcal, p, f, c, ingredients:[{name, amount}], reason, steps}] }
+   *
+   * ここは「調べる」のではなく「考える」用途なのでWeb検索は付けない。
+   * カロリーは概算でよい(このアプリは厳密な栄養計算を目的にしていない)。
+   */
+  async suggestDishes(ctx) {
+    const c = ctx || {};
+    const serves = c.serves || 2;
+    const system = [
+      'あなたは日本の家庭料理に詳しい、減量中の人のための献立アドバイザーです。',
+      'ユーザーの手持ち食材をもとに、今日作れる料理の候補をJSONで返します。',
+      '',
+      'ルール:',
+      '- 候補は3〜5件。日本の家庭で普通に作れる、手順の簡単なものにする。',
+      '- 手持ちの食材をできるだけ多く使う。買い足しが必要な材料は1品につき3つ以内に抑える。',
+      '- 減量中なので高たんぱく・低脂質寄りにし、野菜を入れる。揚げ物は多くても1件まで。',
+      `- 材料は「${serves}人分作る」前提の分量で書く(amountは「200g」「1個」「大さじ1」など日本語で)。`,
+      '- kcal と p/f/c は「1人分」の概算値。kcalは整数、p/f/cは小数1桁。厳密さより妥当さを優先する。',
+      '- 調味料は主要なものだけでよい(塩こしょう・油などの常備品は材料に入れない)。',
+      '- reason は20〜40字程度のひとこと(なぜこれを勧めるか)。steps は作り方を1〜2文で。',
+      '- 最近食べたものとして挙がっている料理、および似た料理は提案しない。',
+      '- 出力は次の形のJSONのみ。説明文・マークダウンは一切付けない。',
+      '{"dishes":[{"name":"","kcal":0,"p":0,"f":0,"c":0,' +
+        '"ingredients":[{"name":"","amount":""}],"reason":"","steps":""}]}'
+    ].join('\n');
+
+    const lines = [];
+    lines.push(`手持ちの食材: ${(c.pantry || []).join('、') || '(なし)'}`);
+    if (c.recent && c.recent.length) lines.push(`最近食べたもの: ${c.recent.join('、')}`);
+    lines.push(`作る量: ${serves}人分(食べるのは1人分)`);
+    if (c.targetKcal) lines.push(`1食あたりの目安: ${c.targetKcal} kcal 前後`);
+    lines.push('この条件で作れる料理を提案してください。');
+
+    const obj = this._obj(await this._call(system, lines.join('\n'), { web: false, maxTokens: 3000 }));
+    const dishes = (Array.isArray(obj.dishes) ? obj.dishes : [])
+      .filter((d) => d && d.name)
+      .map((d) => ({
+        name: String(d.name),
+        kcal: Math.round(Number(d.kcal) || 0),
+        p: Calc.r1(d.p),
+        f: Calc.r1(d.f),
+        c: Calc.r1(d.c),
+        reason: String(d.reason || ''),
+        steps: String(d.steps || ''),
+        ingredients: (Array.isArray(d.ingredients) ? d.ingredients : [])
+          .filter((x) => x && x.name)
+          .map((x) => ({ name: String(x.name).trim(), amount: String(x.amount || '').trim() }))
+      }));
+    if (!dishes.length) throw new Error('提案が返ってきませんでした。もう一度試してください。');
+    return { dishes };
+  },
+
+  /** 応答テキストからJSONオブジェクトを1つ取り出す(前後に余計な文が付いていても耐える) */
+  _obj(text) {
+    const s = String(text || '').indexOf('{');
+    const e = String(text || '').lastIndexOf('}');
     if (s < 0 || e <= s) throw new Error('AIの応答を読み取れませんでした。もう一度試してください。');
-    let obj;
-    try { obj = JSON.parse(text.slice(s, e + 1)); }
+    try { return JSON.parse(String(text).slice(s, e + 1)); }
     catch (_) { throw new Error('AIの応答を読み取れませんでした。もう一度試してください。'); }
+  },
+
+  /** 食品候補+追加質問の形に整える */
+  _parse(text) {
+    const obj = this._obj(text);
     return {
       candidates: Array.isArray(obj.candidates) ? obj.candidates.filter((c) => c && c.name) : [],
       questions: Array.isArray(obj.questions) ? obj.questions.filter((q) => q && q.q) : []

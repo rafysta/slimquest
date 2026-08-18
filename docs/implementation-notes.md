@@ -1,6 +1,6 @@
 # SlimQuest 実装ノート
 
-**対象バージョン: v0.3.0 (2026-08-18) / Phase 1 + Phase 2 完了**
+**対象バージョン: v0.4.0 (2026-08-18) / Phase 1 + Phase 2 + Phase 3 完了**
 
 新しい会話を始めるときに、まずこのファイルを読めば現状が把握できるようにしたものです。
 機能を追加・変更したら、このファイルも必ず更新してください。
@@ -50,10 +50,10 @@
 | `badges` | 連続記録とバッジ | ✅ |
 | `settings` | プロフィール・目標・自動計上・データ削除 | ✅ |
 | `about` | バージョン・更新履歴・完全リセット | ✅ |
-| `pantry` | 手持ち食材リスト | ⬜ Phase 3 |
-| `suggest` | 食材からの料理提案 | ⬜ Phase 3 |
-| `shopping` | 買い物チェックリスト | ⬜ Phase 3 |
-| `belly` / `belly-view` | お腹の定点撮影と比較 | ⬜ Phase 3 |
+| `pantry` | 手持ち食材リスト | ✅ v0.4.0 |
+| `suggest` | 食材からの献立提案 | ✅ v0.4.0 |
+| `shopping` | 買い物チェックリスト | ✅ v0.4.0 |
+| `belly` / `belly-view` | お腹の定点撮影と変化ビュー | ✅ v0.4.0 |
 
 画面ではないUI: `#amount-sheet`(量の指定シート)、`#modal-overlay`(appAlert/appConfirm)。
 
@@ -87,10 +87,10 @@
 | `meals` | id (auto) | date | 食事記録。`{date, slot, menuId, name, base, factor, kcal, p, f2, c}` |
 | `weights` | date | - | `{date, weight, bodyFat?}` 1日1件で上書き |
 | `exercises` | id (auto) | date | `{date, type, mets, minutes, kcal, auto}` |
-| `photos` | id (auto) | date | お腹の写真(Phase 3) |
-| `shopping` | id (auto) | - | 買い物リスト(Phase 3) |
-| `pantry` | id (auto) | - | 手持ち食材(Phase 3) |
-| `ingWords` | name | - | 食材の入力履歴辞書(Phase 3) |
+| `photos` | id (auto) | date | お腹の写真。`{date, blob(JPEG), w, h}` |
+| `shopping` | id (auto) | - | 買い物リスト。`{name, amount, checked, addedAt, source}` |
+| `pantry` | id (auto) | - | 手持ち食材。`{name, kana, addedAt}` |
+| `ingWords` | name | - | 食材の入力履歴辞書。`{name, kana, useCount, lastUsed}` |
 
 **注意**: `meals` の脂質フィールドは `f2`。レコード自体の倍率が `factor` で、脂質 `f` と名前が
 衝突しないようにしている(`Meals.totals()` が `m.f2` を読む)。
@@ -233,47 +233,123 @@
 - カメラは `showScreen()` の先頭で `Barcode.stop()` を呼び、**barcode 画面以外へ移ったら必ず停止**する
 - SW は `openfoodfacts.org` をパススルー済み(v0.1.0 から準備されていた)
 
+### 手持ち食材・献立提案・買い物リスト(v0.4.0 / Phase 3 追加)
+
+この3つは1本の輪になっている。**手持ち食材 → 献立提案 → 足りない材料が買い物リスト →
+買えたら手持ちへ戻す**。どこか1つだけ使っても成立するが、続けて回すほど入力が減る。
+
+**食材の入力履歴(`IngWords`、js/pantry.js)** — `ingWords` ストア(keyPath: name)。
+
+- 手持ち食材・買い物リスト・提案の採用、すべての食材入力から `IngWords.touch()` で学習する
+- `frequent()` = 回数 + 最近度。入力欄が空のときのチップに使う
+- `suggest(q)` = 履歴 → 同梱食品(foods.js)の順で前方一致優先。文字を入れたときの候補
+- 画面を2段構え(空ならよく使うもの / 入力があれば候補)にしているのは、
+  **食材名を毎回タイプさせると続かない**ため
+
+**手持ち食材(`Pantry`)** — 数量は持たない。「あるか無いか」だけで提案には十分だから。
+
+- `reading(name)`: 同梱食品に名前か読みが一致すればその**読み**を返す。
+  これで「玉ねぎ」と「たまねぎ」が同じ食材になる(ユーザーが打った名前には読みがないため)
+- `same(a, b)`: ①完全一致 ②どちらかがどちらかを含む ③**飛ばし一致**(文字が順番どおり現れる)。
+  ③があるので AI の「豚肉」が手持ちの「豚こま切れ肉」に当たる。
+  1文字の食材(米・塩・油)が何にでも当たらないよう、②③は2文字以上のときだけ許す
+- `matches(材料名)`: 表記どうし・読みどうしの両方で `same()` を試し、当たった手持ちを返す
+
+**献立提案(`js/suggest.js` + `AI.suggestDishes`)**
+
+- プロンプトに渡すもの: 手持ち食材 / 直近3日の食事名(同じ料理の連続を避ける) /
+  何人分作るか / 1食の目安kcal(`Profile.targetIntake() ÷ 3`)
+- 応答は `{dishes:[{name, kcal, p, f, c, ingredients:[{name, amount}], reason, steps}]}`。
+  kcal/PFC は**1人分**、材料は**作った全体ぶん**の分量
+- **Web検索ツールは付けない**(`AI._call(system, user, {web: false})`)。
+  ここは調べ物ではなく考える用途で、検索を付けても待ち時間が伸びるだけのため
+- 表示は材料の色分けが肝。手持ち=緑(`.ing.have`)/ 不足=グレー破線(`.ing.miss`)
+- 「これにする」= menus に `origin:'suggest'` `base:'1人分'` `serves` 付きで登録 +
+  **不足分だけ** shopping へ + `IngWords` 学習 + バッジ `suggest` 解除
+- 「材料を選んで正確に登録する」= 材料名を `Menus.search()` で当てはめて `recipe-edit` を開く。
+  カロリーをAIの概算ではなく食品データから積み上げたいときの経路
+
+**買い物リスト(`js/shopping.js`)**
+
+- チェック済みは**消さずに下へ沈める**(買い忘れの確認ができるように)
+- 「買えたものを手持ち食材に移す」で pantry へ移してリストから消す。これで輪が閉じる
+- 未チェックの同名は重複追加しない(提案を続けて採用しても増えない)
+
+### お腹の定点撮影(v0.4.0 / `js/belly.js`)
+
+体重は水分で1〜2kg動くので、見た目の変化のほうが正直な記録になる。ただし
+**同じ位置・同じ距離で撮れていないと比較にならない**ので、プレビューに
+ガイド枠 + **前回写真の半透明オーバーレイ**(濃さはスライダーで調整)を重ねている。
+
+- 保存は長辺1280px・JPEG品質0.8(1枚150〜300KB)。毎日撮っても半年で50MB前後
+- カメラは `showScreen()` の先頭で `Belly.stop()`。**belly 画面以外へ移ったら必ず停止**する
+  (バーコードと同じ扱い)
+- カメラが使えない環境では `<input type="file" capture>` にフォールバック
+- 写真は `photos` ストアに Blob のまま置き、**起動時には読まない**(画面を開いたときだけ `load()`)
+- `URL.createObjectURL` したものは `_urls` に積み、描画のたびに `_freeUrls()` で解放する
+- 変化ビューはスライダー + 連続再生(450ms)。日付・枚数・その日の体重(なければ直前の記録)を重ねる
+
 ## 4. 読み込み順序
 
 ```
 version → db → foods → calc → menus → ai → combo → meals → recipes → barcode
-        → weight → exercise → streak → app
+        → weight → exercise → pantry → shopping → suggest → belly → streak → app
 ```
 
 `ai.js` と `combo.js` は `meals.js` より前(`AiUI` を `Meals.openNew` が、
 `makeComboBuilder` を `SetBuilder` の定義が使うため)。
 `recipes.js` / `barcode.js` は `meals.js` より後(`Meals` を参照するため)。
+`suggest.js` は `pantry.js` / `shopping.js` / `recipes.js` の後。
 
-`app.js` が全モジュールに依存するため必ず最後。Phase 2 以降で追加するファイルの位置:
+`app.js` が全モジュールに依存するため必ず最後。Phase 4 で追加する `backup.js` は
+`streak.js` と `app.js` の間に入れる。
 
-```
-version → db → foods → calc → ai → menus → meals → recipes → barcode
-        → weight → exercise → pantry → suggest → shopping → belly → streak → backup → app
-```
-
-追加したら `sw.js` の `APP_SHELL` と `index.html` の `<script>` の両方に足すこと。
+追加したら `sw.js` の `APP_SHELL` と `index.html` の `<script>` の両方に足すこと
+(`?v=` は `node tools/sync-version.js` が自動で付ける)。
 
 ---
 
 ## 5. テスト
 
-`/tmp/test-slimquest.js` に jsdom + fake-indexeddb による自動テストがある(91項目)。
-**セッションが変わると消えるため、大きな変更のときは作り直すこと。** カバーしている範囲:
+`/tmp/test-slimquest.js` に jsdom + fake-indexeddb による自動テストがある(**182項目**、
+v0.4.0 で作り直した)。**セッションが変わると消えるため、大きな変更のときは作り直すこと。**
 
-- 全JSファイルの構文チェックと起動時エラーの有無
-- `data-nav` の飛び先がすべて存在するか
+作り直すときの注意(はまりどころ):
+
+- jsdom は `runScripts: 'dangerously'` にして `<script>` 要素として評価する。
+  `win.eval()` だと `const` 宣言が eval スコープに閉じて `Calc` すら見えない
+- 各ファイルの `const` はグローバル**字句**束縛なので `window.Calc` にはならない。
+  最後に `['Calc', ...].forEach(n => window[n] = eval(n))` を流すブリッジを入れる
+- `appAlert` / `appConfirm` はボタンが押されるまで解決しないので、テストでは差し替える
+
+カバーしている範囲:
+
+- 全JSファイルの構文チェックと起動時エラーの有無、`data-nav` の飛び先の存在
+- index.html / sw.js の APP_SHELL / version.json / CHANGELOG の整合(読み込み漏れの検出)
 - 日付計算(月またぎ・年またぎ)、かな正規化、BMR、METs、目標赤字、ペース帯
 - メニュー検索(ひらがな/カタカナ/漢字、前方一致の優先)、頻出ランキング
-- 食事の記録・倍率計算・日別集計・削除
+- 食事の記録・倍率計算・日別集計・削除、セット/レシピの合計と人数割り
 - 体重の保存/上書き・移動平均・SVG生成(NaN混入の検出)
-- 運動の記録・自動計上が1日1回であること
-- ストリークの増減とバッジ解除
-- 各画面の描画とXSSエスケープ
+- 運動の記録・自動計上が1日1回であること、ストリークの増減とバッジ解除
+- 手持ち食材の重複防止・削除、`matches()` の一致/不一致(「豚肉」↔「豚こま切れ肉」、1文字の誤爆)
+- 入力履歴の学習・補完(履歴と同梱食品の両方から)
+- 買い物リストの重複防止・チェックで下に沈む・手持ちへの移動・チェック済み一括削除
+- 献立提案の材料ハイライト・採用時のメニュー登録と不足材料の買い物リスト投入・料理名のエスケープ
+- 写真の縮小サイズ計算・保存/削除・キャプション・スライダーの範囲・画面を離れるとカメラが止まること
+- 各画面の描画とXSSエスケープ、データ全消去の対象ストア
 
 実行: `node /tmp/test-slimquest.js`
 
-実機でしか確認できないもの(カメラ・バーコード・ホーム画面への追加)は Phase 2/3 で
-チェックリストにする。
+実機でしか確認できないもの(カメラ・バーコード・ホーム画面への追加)は下のチェックリスト。
+
+### 実機(Android Chrome)確認チェックリスト
+
+- [ ] ホーム画面に追加できる / 起動時にスプラッシュが出る
+- [ ] バーコード: カメラが起動し、JANを読んで商品が出る。画面を離れるとカメラが消灯する
+- [ ] お腹の撮影: カメラ起動 → ガイド枠と前回写真が重なる → 撮影して保存される
+- [ ] お腹の撮影: 画面を離れるとカメラが消灯する / 変化ビューで再生できる
+- [ ] AI検索と献立提案が通る(APIキー設定後)
+- [ ] 機内モードでも起動して記録できる(SWのオフライン動作)
 
 ---
 
@@ -289,21 +365,18 @@ version → db → foods → calc → ai → menus → meals → recipes → bar
 
 ## 7. 次に作るもの
 
-(Phase 1 / Phase 2 は完了。残りは Phase 3 以降)
-
-### Phase 3 — 提案・買い物・写真
-
-- `js/pantry.js`: 手持ち食材リスト。頻出食材チップ + インクリメンタル検索。
-  食材の入力履歴(`ingWords`)は手持ち・レシピ・買い物リストの3箇所で共有する
-- `js/suggest.js`: **手持ち食材を起点に** AI が料理候補3〜5件を提案。
-  各候補に 1人分の概算カロリー・PFC / 材料リスト / ひとこと理由。
-  材料のうち**手持ちにあるものをハイライト**(かな正規化 + 部分一致で「豚肉」と「豚こま切れ肉」も当てる)。
-  採用 → レシピ登録 + **足りない材料だけ**買い物リストへ
-- `js/shopping.js`: チェックリスト。チェックした食材を「手持ちに移す」導線
-- `js/belly.js`: ガイド枠 + 前回写真の半透明重ねで定点撮影 → JPEG圧縮して photos へ。
-  スライダーと連続再生で変化を比較
+(Phase 1 / Phase 2 / Phase 3 は完了。残りは Phase 4)
 
 ### Phase 4 — 仕上げ
 
 - `js/backup.js`(ConfQuest の MiniZip を流用): `sq_*` + IndexedDB 全ストア + 写真を
-  1つのZIPに。Web Share で Nextcloud へ送れるようにする
+  1つのZIPに。Web Share で Nextcloud へ送れるようにする。**写真が入るので容量に注意**
+  (現状バックアップ手段がないので、実データが増える前に作っておきたい)
+- 設定画面の「バックアップ機能は今後のバージョンで追加します」の注記を差し替える
+
+### 積み残し(気づいたら直す)
+
+- 登録済みメニュー(レシピ・セット)の**編集と削除の画面がない**。
+  `Menus.update()` / `Menus.remove()` は用意してあるが、そこへ行く導線がまだない
+- 献立提案の採用で作った menus は AI の概算値なので、あとから実測に直す導線があるとよい
+- 食事日記から過去日への追加ができない(今日ぶんの記録のみ)

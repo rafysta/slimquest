@@ -118,8 +118,9 @@ const Profile = {
 /* ---------- 画面遷移 ---------- */
 
 function showScreen(name) {
-  // カメラを掴んだままにしない(バーコード画面から離れたら必ず止める)
+  // カメラを掴んだままにしない(バーコード・撮影画面から離れたら必ず止める)
   if (name !== 'barcode' && typeof Barcode !== 'undefined') Barcode.stop();
+  if (name !== 'belly' && typeof Belly !== 'undefined') Belly.stop();
 
   document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
   const el = document.getElementById(`screen-${name}`);
@@ -134,6 +135,11 @@ function showScreen(name) {
   if (name === 'diary') Meals.renderDiary();
   if (name === 'weight') Weight.render();
   if (name === 'exercise') Exercise.render();
+  if (name === 'pantry') Pantry.render();
+  if (name === 'suggest') Suggest.render();
+  if (name === 'shopping') Shopping.render();
+  if (name === 'belly') Belly.onShow();
+  if (name === 'belly-view') Belly.onShowView();
   if (name === 'badges') Streak.render();
   if (name === 'settings') loadSettings();
   if (name === 'about') renderAbout();
@@ -183,6 +189,10 @@ async function renderHome() {
     <div><span>運動</span><b>${burned}</b></div>`;
   document.getElementById('pfc-line').textContent =
     `P ${t.p}g / F ${t.f}g / C ${t.c}g`;
+
+  // 買い物リストに残りがあればホームのボタンに件数を出す
+  const rest2 = Shopping.remaining();
+  document.getElementById('home-shop').textContent = rest2 ? `買い物 ${rest2}` : '買い物';
 
   // 体重
   const cur = Weight.current();
@@ -375,6 +385,46 @@ function bindEvents() {
   document.getElementById('btn-bc-show-manual').addEventListener('click', () => Barcode.showManual());
   document.getElementById('btn-bc-manual').addEventListener('click', () => Barcode.manualLookup());
 
+  // 手持ち食材
+  const ptIn = document.getElementById('pt-input');
+  ptIn.addEventListener('input', () => Pantry.renderSuggest());
+  document.getElementById('pt-input-clear').addEventListener('click', () => {
+    ptIn.value = ''; Pantry.renderSuggest(); ptIn.focus();
+  });
+  document.getElementById('btn-pt-add').addEventListener('click', () => Pantry.addTyped());
+  document.getElementById('btn-pt-clear').addEventListener('click', async () => {
+    if (!Pantry.count()) { appAlert('手持ち食材はまだ登録されていません'); return; }
+    if (!await appConfirm('手持ち食材リストを空にします。', '手持ち食材')) return;
+    await Pantry.clear();
+    Pantry.render();
+    showToast('空にしました');
+  });
+
+  // 買い物リスト
+  const spIn = document.getElementById('sp-input');
+  spIn.addEventListener('input', () => Shopping.renderSuggest());
+  document.getElementById('sp-input-clear').addEventListener('click', () => {
+    spIn.value = ''; Shopping.renderSuggest(); spIn.focus();
+  });
+  document.getElementById('btn-sp-add').addEventListener('click', () => Shopping.addTyped());
+  document.getElementById('btn-sp-to-pantry').addEventListener('click', () => Shopping.onMoveToPantry());
+  document.getElementById('btn-sp-clear-checked').addEventListener('click', () => Shopping.onClearChecked());
+
+  // 献立の提案
+  document.getElementById('btn-sg-run').addEventListener('click', () => Suggest.run());
+
+  // お腹の定点撮影
+  document.getElementById('bl-opacity').addEventListener('input', () => Belly.setGhostOpacity());
+  document.getElementById('btn-bl-shoot').addEventListener('click', () => Belly.shoot());
+  document.getElementById('bl-file').addEventListener('change', (e) => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    Belly.fromFile(f);
+  });
+  document.getElementById('bv-slider').addEventListener('input', (e) => Belly.seek(e.target.value));
+  document.getElementById('btn-bv-play').addEventListener('click', () => Belly.togglePlay());
+  document.getElementById('btn-bv-del').addEventListener('click', () => Belly.removeCurrent());
+
   // 量シート
   document.querySelectorAll('#as-quick [data-f]').forEach((b) => {
     b.addEventListener('click', () => Meals.setFactor(Number(b.dataset.f)));
@@ -441,6 +491,8 @@ async function boot() {
   try {
     await Menus.load();
     await Weight.load();
+    // 手持ち食材・買い物・食材辞書は小さいので起動時に読む(写真は開いたときだけ読む)
+    await Promise.all([Pantry.load(), Shopping.load(), IngWords.load()]);
   } catch (err) {
     showErrorBanner('データベースを開けませんでした: ' + err.message);
   }

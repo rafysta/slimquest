@@ -420,3 +420,95 @@ body {
 
 /* 量シートのセット内訳 */
 .as-ing { color: var(--dim); font-size: .78rem; margin: 6px 0 0; text-align: center; }
+
+/* ---------- 手持ち食材・買い物リスト(Phase 3) ---------- */
+.quick-row.four { grid-template-columns: repeat(4, 1fr); }
+
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--card2); border: 1px solid var(--line); color: var(--text);
+  border-radius: 999px; padding: 6px 6px 6px 12px; font-size: .85rem; min-height: 36px;
+}
+.chip .chip-t { padding-right: 2px; }
+.chip button {
+  width: 26px; height: 26px; border: 0; border-radius: 50%;
+  background: transparent; color: var(--dim); font-size: 1rem; line-height: 1;
+}
+.chip.add {
+  padding: 6px 12px; background: transparent; border-style: dashed;
+  color: var(--dim); min-height: 36px;
+}
+.chip.add:active { background: var(--card2); }
+.chip-row .empty.small { padding: 4px 2px; }
+
+.shop-list { list-style: none; margin: 0; padding: 0; }
+.shop-list li {
+  display: flex; align-items: center; gap: 8px;
+  border-bottom: 1px solid var(--line); padding: 4px 2px;
+}
+.shop-list li.done .shop-name { color: var(--dim); text-decoration: line-through; }
+.shop-check {
+  width: 40px; min-height: 40px; border: 0; background: transparent;
+  color: var(--accent); font-size: 1.3rem; line-height: 1;
+}
+.shop-list li.done .shop-check { color: var(--dim); }
+.shop-name { flex: 1; font-size: .95rem; }
+.shop-name small { color: var(--dim); font-size: .75rem; margin-left: 6px; }
+.shop-tag {
+  font-size: .65rem; color: var(--accent); border: 1px solid var(--accent-d);
+  border-radius: 6px; padding: 1px 5px; white-space: nowrap;
+}
+
+/* ---------- 献立の提案 ---------- */
+.dish { padding: 12px 14px; }
+.dish-head { display: flex; align-items: baseline; gap: 10px; }
+.dish-head h3 { flex: 1; margin: 0; font-size: 1.05rem; color: var(--text); }
+.dish-reason { font-size: .85rem; margin: 6px 0; }
+.dish-steps {
+  font-size: .8rem; color: var(--dim); margin: 8px 0 4px;
+  border-left: 2px solid var(--line); padding-left: 8px; line-height: 1.5;
+}
+.ing-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.ing {
+  display: inline-flex; align-items: baseline; gap: 4px;
+  border-radius: 8px; padding: 4px 8px; font-size: .82rem;
+  border: 1px solid var(--line);
+}
+.ing small { font-size: .72rem; opacity: .8; }
+.ing.have { color: var(--accent); border-color: var(--accent-d); background: rgba(52, 211, 153, .1); }
+.ing.miss { color: var(--dim); border-style: dashed; }
+.dish .btn { margin-top: 8px; }
+
+/* ---------- お腹の定点撮影 ---------- */
+.belly-frame {
+  position: relative; width: 100%; aspect-ratio: 3 / 4; overflow: hidden;
+  background: #000; border: 1px solid var(--line); border-radius: 14px;
+}
+#bl-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bl-ghost {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; pointer-events: none; opacity: .35;
+}
+.bl-guide {
+  position: absolute; left: 12%; right: 12%; top: 8%; bottom: 8%;
+  border: 2px dashed rgba(52, 211, 153, .7); border-radius: 40% / 25%;
+  pointer-events: none;
+}
+.bl-guide::after {
+  content: ''; position: absolute; left: 0; right: 0; top: 50%;
+  border-top: 1px dashed rgba(52, 211, 153, .45);
+}
+.range-label { display: block; font-size: .8rem; color: var(--dim); margin: 12px 0 4px; }
+.range-label input[type="range"] { width: 100%; height: 36px; accent-color: var(--accent); }
+.file-btn { display: block; text-align: center; cursor: pointer; }
+
+.bv-frame {
+  width: 100%; background: #000; border: 1px solid var(--line);
+  border-radius: 14px; overflow: hidden;
+}
+.bv-img { width: 100%; height: auto; display: block; }
+#bv-slider { width: 100%; height: 40px; accent-color: var(--accent); margin: 6px 0; }
+#bv-caption { text-align: center; }
+#bv-caption b { color: var(--text); font-size: 1rem; }
+#bv-caption small { font-size: .75rem; }

@@ -243,6 +243,7 @@ const Meals = {
     };
     if (this.pendingJan) rec.jan = this.pendingJan;
     const menu = await Menus.add(rec);
+    if (rec.jan) Streak.unlock('barcode');
     delete nameEl.dataset.origin;
     this.pendingJan = '';
     if (this.newCombo) {

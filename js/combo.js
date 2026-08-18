@@ -187,6 +187,7 @@ function makeComboBuilder(cfg) {
       };
       if (cfg.serves) rec.serves = this.serves();
       const menu = await Menus.add(rec);
+      if (cfg.origin === 'recipe') Streak.unlock('recipe');
 
       if (alsoRecord) {
         await Meals.add(Calc.today(), Meals.slot, menu, 1);
