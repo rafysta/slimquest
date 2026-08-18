@@ -190,8 +190,8 @@ function makeComboBuilder(cfg) {
       if (cfg.origin === 'recipe') Streak.unlock('recipe');
 
       if (alsoRecord) {
-        await Meals.add(Calc.today(), Meals.slot, menu, 1);
-        Streak.recordToday();
+        await Meals.add(Meals.date(), Meals.slot, menu, 1);
+        if (Meals.isToday()) Streak.recordToday();
         showToast(`${menu.name} を登録して${Meals.slotLabel(Meals.slot)}に記録しました`);
       } else {
         Menus.touch(menu.id, Meals.slot);

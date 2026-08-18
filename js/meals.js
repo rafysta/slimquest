@@ -17,6 +17,14 @@ const Meals = {
   slot: 'l',
   diaryDate: '',
 
+  /** これから記録する日。日記から入ったときだけ今日以外になる */
+  targetDate: '',
+  /** 食事入力画面の戻り先('home' / 'diary') */
+  backTo: 'home',
+
+  date() { return this.targetDate || Calc.today(); },
+  isToday() { return this.date() === Calc.today(); },
+
   /* ---------- データ ---------- */
 
   /** 時間帯から食事区分を推測 */
@@ -71,13 +79,34 @@ const Meals = {
 
   /* ---------- 食事入力画面 ---------- */
 
-  openAdd(slot) {
+  /**
+   * 食事入力画面を開く。
+   * from に 'diary' を渡すと日記で開いている日に記録し、戻るボタンも日記に返る。
+   * (過去の食べ忘れをあとから足せるようにするため)
+   */
+  openAdd(slot, from) {
     this.slot = slot || this.slotByHour();
+    this.backTo = from === 'diary' ? 'diary' : 'home';
+    this.targetDate = from === 'diary' ? (this.diaryDate || Calc.today()) : Calc.today();
     const input = document.getElementById('meal-search');
     input.value = '';
+    this.renderDateNote();
     this.renderSlotTabs();
     this.renderList();
     showScreen('meal-add');
+  },
+
+  /** 今日以外に記録するときだけ、どの日に入るかを目立たせる */
+  renderDateNote() {
+    const el = document.getElementById('ma-date-note');
+    if (!el) return;
+    if (this.isToday()) {
+      el.classList.add('hidden');
+      el.textContent = '';
+    } else {
+      el.textContent = `📅 ${Calc.fmtShort(this.date())} の記録として追加します`;
+      el.classList.remove('hidden');
+    }
   },
 
   renderSlotTabs() {
@@ -179,10 +208,14 @@ const Meals = {
     const m = this._pending;
     if (!m) return;
     const f = Number(document.getElementById('as-slider').value) || 1;
-    await this.add(Calc.today(), this.slot, m, f);
+    const d = this.date();
+    await this.add(d, this.slot, m, f);
     this.closeAmount();
-    showToast(`${m.name} を${this.slotLabel(this.slot)}に記録しました`);
-    Streak.recordToday();
+    showToast(this.isToday()
+      ? `${m.name} を${this.slotLabel(this.slot)}に記録しました`
+      : `${Calc.fmtShort(d)} の${this.slotLabel(this.slot)}に記録しました`);
+    // 連続記録は「今日記録したか」なので、過去日を埋めたときは数えない
+    if (this.isToday()) Streak.recordToday();
     document.getElementById('meal-search').value = '';
     this.renderList();
   },
@@ -255,8 +288,8 @@ const Meals = {
       return;
     }
     if (alsoRecord) {
-      await this.add(Calc.today(), this.slot, menu, 1);
-      Streak.recordToday();
+      await this.add(this.date(), this.slot, menu, 1);
+      if (this.isToday()) Streak.recordToday();
       showToast(`${menu.name} を登録して記録しました`);
     } else {
       Menus.touch(menu.id, this.slot);
@@ -267,6 +300,73 @@ const Meals = {
     showScreen('meal-add');
   },
 
+  /* ---------- 日記のカレンダー ---------- */
+
+  /* 日送りだけだと「先週の月曜」に行くのに何度もタップすることになるので、
+   * 月のカレンダーから直接飛べるようにする。記録がある日は摂取カロリーを出し、
+   * どこに穴が空いているかも一目で分かるようにした。 */
+
+  calYm: '',
+
+  calEl() { return document.getElementById('diary-cal'); },
+
+  async toggleCal() {
+    const el = this.calEl();
+    if (el.classList.contains('hidden')) {
+      await this.renderCal((this.diaryDate || Calc.today()).slice(0, 7));
+      el.classList.remove('hidden');
+    } else {
+      el.classList.add('hidden');
+    }
+  },
+
+  /** ym は 'YYYY-MM'。n ヶ月ずらす */
+  shiftMonth(ym, n) {
+    const [y, m] = ym.split('-').map(Number);
+    const d = new Date(y, m - 1 + n, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  },
+
+  async renderCal(ym) {
+    this.calYm = ym;
+    const [y, m] = ym.split('-').map(Number);
+    const days = new Date(y, m, 0).getDate();
+    const p2 = (n) => String(n).padStart(2, '0');
+    const first = `${ym}-01`;
+    const last = `${ym}-${p2(days)}`;
+    const today = Calc.today();
+
+    // その月ぶんの食事を1回のトランザクションで取り、日ごとに合計する
+    const meals = await DB.byIndexRange('meals', 'date', first, last);
+    const sum = {};
+    meals.forEach((x) => { sum[x.date] = (sum[x.date] || 0) + (x.kcal || 0); });
+
+    document.getElementById('cal-title').textContent = `${y}年 ${m}月`;
+    document.getElementById('btn-cal-next').disabled = (ym >= today.slice(0, 7));
+
+    let html = '';
+    const lead = new Date(y, m - 1, 1).getDay();
+    for (let i = 0; i < lead; i++) html += '<span class="cal-pad"></span>';
+    for (let d = 1; d <= days; d++) {
+      const ymd = `${ym}-${p2(d)}`;
+      const cls = ['cal-d'];
+      if (ymd === today) cls.push('today');
+      if (ymd === this.diaryDate) cls.push('sel');
+      if (sum[ymd]) cls.push('has');
+      html += `<button class="${cls.join(' ')}" data-cal="${ymd}"${ymd > today ? ' disabled' : ''}>` +
+        `<span class="cal-n">${d}</span>` +
+        `<small>${sum[ymd] ? sum[ymd] : ''}</small></button>`;
+    }
+    const grid = document.getElementById('cal-grid');
+    grid.innerHTML = html;
+    grid.querySelectorAll('[data-cal]').forEach((b) => {
+      b.addEventListener('click', () => {
+        this.calEl().classList.add('hidden');
+        this.renderDiary(b.dataset.cal);
+      });
+    });
+  },
+
   /* ---------- 食事日記 ---------- */
 
   async renderDiary(date) {
@@ -275,6 +375,8 @@ const Meals = {
     const d = this.diaryDate;
     document.getElementById('diary-date').textContent = Calc.fmtShort(d);
     document.getElementById('btn-diary-next').disabled = (d >= Calc.today());
+    // カレンダーを開いたまま日を移ったときは選択位置を追従させる
+    if (!this.calEl().classList.contains('hidden')) await this.renderCal(d.slice(0, 7));
 
     const [meals, exs] = await Promise.all([this.byDate(d), Exercise.byDate(d)]);
     const t = this.totals(meals);

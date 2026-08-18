@@ -356,8 +356,10 @@ function bindEvents() {
 
   // 食事
   document.querySelectorAll('[data-addmeal]').forEach((b) => {
-    b.addEventListener('click', () => Meals.openAdd(b.dataset.addmeal || undefined));
+    b.addEventListener('click', () =>
+      Meals.openAdd(b.dataset.addmeal || undefined, b.dataset.addmealFrom));
   });
+  document.getElementById('ma-back').addEventListener('click', () => showScreen(Meals.backTo));
   const search = document.getElementById('meal-search');
   search.addEventListener('input', () => Meals.renderList());
   document.getElementById('btn-search-clear').addEventListener('click', () => {
@@ -415,6 +417,12 @@ function bindEvents() {
 
   // お腹の定点撮影
   document.getElementById('bl-opacity').addEventListener('input', () => Belly.setGhostOpacity());
+  document.getElementById('btn-bl-flip').addEventListener('click', () => Belly.switchCamera());
+  document.getElementById('btn-bl-guide').addEventListener('click', () => Belly.toggleGuidePanel());
+  document.getElementById('btn-bl-guide-reset').addEventListener('click', () => Belly.resetGuide());
+  ['bl-gw', 'bl-gh', 'bl-gy'].forEach((id) => {
+    document.getElementById(id).addEventListener('input', () => Belly.applyGuide());
+  });
   document.getElementById('btn-bl-shoot').addEventListener('click', () => Belly.shoot());
   document.getElementById('bl-file').addEventListener('change', (e) => {
     const f = e.target.files && e.target.files[0];
@@ -440,6 +448,11 @@ function bindEvents() {
     Meals.renderDiary(Calc.addDays(Meals.diaryDate, 1)));
   document.getElementById('btn-diary-today').addEventListener('click', () =>
     Meals.renderDiary(Calc.today()));
+  document.getElementById('btn-diary-date').addEventListener('click', () => Meals.toggleCal());
+  document.getElementById('btn-cal-prev').addEventListener('click', () =>
+    Meals.renderCal(Meals.shiftMonth(Meals.calYm, -1)));
+  document.getElementById('btn-cal-next').addEventListener('click', () =>
+    Meals.renderCal(Meals.shiftMonth(Meals.calYm, 1)));
 
   // 体重
   document.getElementById('btn-w-save').addEventListener('click', () => Weight.save());
@@ -499,6 +512,7 @@ async function boot() {
 
   Meals.slot = Meals.slotByHour();
   Meals.diaryDate = Calc.today();
+  Meals.targetDate = Calc.today();
 
   if (!Profile.isSet()) {
     startWizard();

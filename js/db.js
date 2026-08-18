@@ -80,6 +80,12 @@ const DB = {
     return this._tx(store, 'readonly', (s) => s.index(index).getAll(value));
   },
 
+  /** インデックスで範囲(lower〜upper、両端含む)の複数件を取得。日記のカレンダーで1ヶ月ぶんを引く */
+  byIndexRange(store, index, lower, upper) {
+    return this._tx(store, 'readonly',
+      (s) => s.index(index).getAll(IDBKeyRange.bound(lower, upper)));
+  },
+
   /** 複数件をまとめて保存(1トランザクション) */
   async putAll(store, values) {
     if (!values.length) return;
