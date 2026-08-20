@@ -390,11 +390,17 @@ const Meals = {
 
   /* 日送りだけだと「先週の月曜」に行くのに何度もタップすることになるので、
    * 月のカレンダーから直接飛べるようにする。記録がある日は摂取カロリーを出し、
-   * どこに穴が空いているかも一目で分かるようにした。 */
+   * どこに穴が空いているかも一目で分かるようにした。
+   *
+   * **日を選んでもカレンダーは閉じない。** 最初は閉じる作りにしていたが、
+   * それだと「何日か続けて見比べる」ができない(選ぶたびに閉じるので開き直しになる)。
+   * カレンダーは日付ボタンをもう一度押すまで出したままにして、下の日記だけを差し替える。 */
 
   calYm: '',
 
   calEl() { return document.getElementById('diary-cal'); },
+
+  calOpen() { return !this.calEl().classList.contains('hidden'); },
 
   async toggleCal() {
     const el = this.calEl();
@@ -404,6 +410,13 @@ const Meals = {
     } else {
       el.classList.add('hidden');
     }
+    this.renderCalArrow();
+  },
+
+  /** 日付ボタンの▼/▲(いま開いているかが分かるように) */
+  renderCalArrow() {
+    const el = document.getElementById('diary-cal-arrow');
+    if (el) el.textContent = this.calOpen() ? '▲' : '▼';
   },
 
   /** ym は 'YYYY-MM'。n ヶ月ずらす */
@@ -445,11 +458,9 @@ const Meals = {
     }
     const grid = document.getElementById('cal-grid');
     grid.innerHTML = html;
+    // 選んでもカレンダーは閉じない。下の日記だけが切り替わる
     grid.querySelectorAll('[data-cal]').forEach((b) => {
-      b.addEventListener('click', () => {
-        this.calEl().classList.add('hidden');
-        this.renderDiary(b.dataset.cal);
-      });
+      b.addEventListener('click', () => this.renderDiary(b.dataset.cal));
     });
   },
 
@@ -462,7 +473,8 @@ const Meals = {
     document.getElementById('diary-date').textContent = Calc.fmtShort(d);
     document.getElementById('btn-diary-next').disabled = (d >= Calc.today());
     // カレンダーを開いたまま日を移ったときは選択位置を追従させる
-    if (!this.calEl().classList.contains('hidden')) await this.renderCal(d.slice(0, 7));
+    if (this.calOpen()) await this.renderCal(d.slice(0, 7));
+    this.renderCalArrow();
 
     const [meals, exs] = await Promise.all([this.byDate(d), Exercise.byDate(d)]);
     const t = this.totals(meals);

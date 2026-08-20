@@ -8,7 +8,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="css/style.css?v=0.5.0">
+<link rel="stylesheet" href="css/style.css?v=0.5.1">
 <script>
 /* スクリプト読み込み中のエラーも拾う(app.jsが画面に出す) */
 window.__earlyErrors = [];
@@ -385,7 +385,7 @@ window.addEventListener('unhandledrejection', function (e) {
   </header>
   <div class="date-nav">
     <button id="btn-diary-prev">◀</button>
-    <button id="btn-diary-date" class="date-btn"><span id="diary-date">-</span><small>▼</small></button>
+    <button id="btn-diary-date" class="date-btn"><span id="diary-date">-</span><small id="diary-cal-arrow">▼</small></button>
     <button id="btn-diary-next">▶</button>
     <button id="btn-diary-today" class="today-btn">今日</button>
   </div>
@@ -398,7 +398,7 @@ window.addEventListener('unhandledrejection', function (e) {
     </div>
     <div class="cal-dow"><span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span></div>
     <div class="cal-grid" id="cal-grid"></div>
-    <p class="field-note">数字はその日の摂取カロリーです。日付をタップするとその日の記録に移ります。</p>
+    <p class="field-note">数字はその日の摂取カロリー。日付をタップすると下の記録が入れ替わります(カレンダーは開いたまま)。</p>
   </div>
 
   <div id="diary-body"></div>
@@ -595,24 +595,24 @@ window.addEventListener('unhandledrejection', function (e) {
   </div>
 </div>
 
-<script src="js/version.js?v=0.5.0"></script>
-<script src="js/db.js?v=0.5.0"></script>
-<script src="js/foods.js?v=0.5.0"></script>
-<script src="js/calc.js?v=0.5.0"></script>
-<script src="js/menus.js?v=0.5.0"></script>
-<script src="js/ai.js?v=0.5.0"></script>
-<script src="js/combo.js?v=0.5.0"></script>
-<script src="js/meals.js?v=0.5.0"></script>
-<script src="js/recipes.js?v=0.5.0"></script>
-<script src="js/barcode.js?v=0.5.0"></script>
-<script src="js/weight.js?v=0.5.0"></script>
-<script src="js/exercise.js?v=0.5.0"></script>
-<script src="js/pantry.js?v=0.5.0"></script>
-<script src="js/shopping.js?v=0.5.0"></script>
-<script src="js/suggest.js?v=0.5.0"></script>
-<script src="js/belly.js?v=0.5.0"></script>
-<script src="js/streak.js?v=0.5.0"></script>
-<script src="js/backup.js?v=0.5.0"></script>
-<script src="js/app.js?v=0.5.0"></script>
+<script src="js/version.js?v=0.5.1"></script>
+<script src="js/db.js?v=0.5.1"></script>
+<script src="js/foods.js?v=0.5.1"></script>
+<script src="js/calc.js?v=0.5.1"></script>
+<script src="js/menus.js?v=0.5.1"></script>
+<script src="js/ai.js?v=0.5.1"></script>
+<script src="js/combo.js?v=0.5.1"></script>
+<script src="js/meals.js?v=0.5.1"></script>
+<script src="js/recipes.js?v=0.5.1"></script>
+<script src="js/barcode.js?v=0.5.1"></script>
+<script src="js/weight.js?v=0.5.1"></script>
+<script src="js/exercise.js?v=0.5.1"></script>
+<script src="js/pantry.js?v=0.5.1"></script>
+<script src="js/shopping.js?v=0.5.1"></script>
+<script src="js/suggest.js?v=0.5.1"></script>
+<script src="js/belly.js?v=0.5.1"></script>
+<script src="js/streak.js?v=0.5.1"></script>
+<script src="js/backup.js?v=0.5.1"></script>
+<script src="js/app.js?v=0.5.1"></script>
 </body>
 </html>
