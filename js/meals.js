@@ -480,9 +480,28 @@ const Meals = {
     const t = this.totals(meals);
     const burned = exs.reduce((s, e) => s + (e.kcal || 0), 0);
 
+    // 収支 = 摂取 −(基礎消費 + 運動)。マイナスなら減量できている日。
+    // 食事を1件も記録していない日は「摂取0の大成功」ではなく「記録なし」と出す
+    // (週グラフ側でも平均から除外している。扱いを揃えないと誤解のもとになる)
+    const bal = Balance.ofDay(d, t.kcal, burned);
+    const none = meals.length === 0;
+
+    // この日を含む週(月曜〜日曜)のグラフ
+    await Balance.renderWeek(d);
+
     let html = `<div class="diary-summary card">
-      <div><span class="ds-label">摂取</span><span class="ds-val">${t.kcal}</span><small>kcal</small></div>
-      <div><span class="ds-label">運動</span><span class="ds-val">-${burned}</span><small>kcal</small></div>
+      <div class="ds-row">
+        <div><span class="ds-label">摂取</span><span class="ds-val">${t.kcal}</span><small>kcal</small></div>
+        <div><span class="ds-label">消費</span><span class="ds-val">${bal.burn}</span><small>kcal</small></div>
+      </div>
+      <div class="ds-diff ${none ? 'none' : (bal.diff <= 0 ? 'good' : 'over')}">
+        <span class="ds-label">収支</span>
+        <b>${none ? '—' : (bal.diff > 0 ? '+' : '') + bal.diff}</b>${none ? '' : '<small>kcal</small>'}
+        <span class="ds-diff-note">${none
+          ? '食事の記録がないため計算していません'
+          : (bal.diff <= 0 ? '消費のほうが多い日' : '摂取のほうが多い日')}</span>
+      </div>
+      <div class="ds-pfc">消費の内訳: 基礎 ${bal.base} + 運動 ${burned} kcal</div>
       <div class="ds-pfc">P ${t.p}g / F ${t.f}g / C ${t.c}g</div>
     </div>`;
 

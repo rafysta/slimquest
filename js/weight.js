@@ -30,6 +30,23 @@ const Weight = {
     return p.startWeight || 70;
   },
 
+  /**
+   * その日の体重。過去の日の基礎代謝を計算するのに使う。
+   * その日の記録がなければ「それ以前の直近の記録」、それも無ければ
+   * 「その後の最初の記録」を使い、最後にプロフィールの開始体重へ落とす。
+   * (毎日測るとは限らないので、空白の日は前後の実測で埋める)
+   */
+  onDate(ymd) {
+    let before = null;
+    for (const w of this._list) {
+      if (w.date <= ymd) before = w; else break;
+    }
+    if (before) return before.weight;
+    if (this._list.length) return this._list[0].weight;
+    const p = Profile.get();
+    return p.startWeight || 70;
+  },
+
   async set(date, weight, bodyFat) {
     const rec = { date, weight: Calc.r1(weight) };
     if (bodyFat) rec.bodyFat = Calc.r1(bodyFat);

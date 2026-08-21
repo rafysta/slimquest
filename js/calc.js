@@ -44,6 +44,34 @@ const Calc = {
     return w >= 1 && w <= 5;
   },
 
+  /** 曜日番号(0=日 〜 6=土) */
+  dow(ymd) {
+    const [y, m, d] = ymd.split('-').map(Number);
+    return new Date(y, m - 1, d).getDay();
+  },
+
+  /**
+   * その日を含む週の月曜日。収支グラフは月曜始まりで区切る
+   * (体重グラフの「週◯kg」ペース表示と週の数え方を揃えるため)。
+   */
+  weekStart(ymd) {
+    const w = this.dow(ymd);
+    return this.addDays(ymd, w === 0 ? -6 : 1 - w);
+  },
+
+  /** 月曜から日曜までの7日ぶんの 'YYYY-MM-DD' */
+  weekDays(ymd) {
+    const mon = this.weekStart(ymd);
+    return [0, 1, 2, 3, 4, 5, 6].map((i) => this.addDays(mon, i));
+  },
+
+  /** 表示用 '8/17〜8/23' */
+  fmtWeek(ymd) {
+    const days = this.weekDays(ymd);
+    const p = (d) => d.split('-').slice(1).map(Number).join('/');
+    return `${p(days[0])}〜${p(days[6])}`;
+  },
+
   /* ---------- かな正規化(検索用) ---------- */
 
   /**

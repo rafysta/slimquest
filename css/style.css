@@ -220,11 +220,51 @@ body {
 .date-nav > span { flex: 1; text-align: center; font-weight: 600; }
 .today-btn { font-size: .8rem; padding: 0 10px; }
 
-.diary-summary { display: flex; gap: 16px; align-items: baseline; flex-wrap: wrap; }
-.diary-summary div { display: flex; align-items: baseline; gap: 4px; }
+.diary-summary { display: flex; flex-direction: column; gap: 6px; }
+.ds-row { display: flex; gap: 18px; align-items: baseline; }
+.ds-row div { display: flex; align-items: baseline; gap: 4px; }
 .ds-label { font-size: .75rem; color: var(--dim); }
 .ds-val { font-size: 1.3rem; font-weight: 700; }
-.ds-pfc { width: 100%; font-size: .78rem; color: var(--dim); }
+.ds-pfc { font-size: .78rem; color: var(--dim); }
+
+.ds-diff {
+  display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;
+  padding: 8px 10px; border-radius: 10px;
+  background: var(--bg); border: 1px solid var(--line);
+}
+.ds-diff b { font-size: 1.7rem; }
+.ds-diff small { color: var(--dim); font-size: .75rem; }
+.ds-diff.good b { color: var(--good); }
+.ds-diff.over b { color: var(--danger); }
+.ds-diff.none b { color: var(--dim); }
+.ds-diff-note { width: 100%; font-size: .74rem; color: var(--dim); }
+
+/* ---------- 週の収支グラフ ---------- */
+.bal-card { padding: 12px 10px 10px; }
+.bal-nav { margin-bottom: 6px; }
+.bal-nav span { flex: 1; text-align: center; font-weight: 600; font-size: .9rem; }
+.balgraph { width: 100%; height: auto; display: block; }
+.bal-grid { stroke: var(--line); stroke-width: .5; }
+.bal-zero { stroke: var(--dim); stroke-width: 1; }
+.bal-axis { fill: var(--dim); font-size: 8px; }
+.bal-val { fill: var(--dim); font-size: 8px; }
+.bal-dow { fill: var(--dim); font-size: 9px; }
+.bal-dow.today { fill: var(--warn); }
+.bal-dow.sel { fill: var(--text); font-weight: 700; }
+.bal-bar.good { fill: var(--accent); }
+.bal-bar.over { fill: var(--danger); }
+.bal-none { stroke: var(--line); stroke-width: 2; }
+/* 棒や文字がタップを吸ってしまわないようにする(タップは必ず .bal-hit が受ける) */
+.bal-bar, .bal-val, .bal-dow, .bal-none, .bal-grid, .bal-zero, .bal-axis { pointer-events: none; }
+.bal-hit { fill: transparent; cursor: pointer; }
+.bal-hit.sel { fill: rgba(255, 255, 255, .05); }
+.bal-sum { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+.bal-sum-main { font-size: 1rem; font-weight: 700; }
+.bal-sum-main.good { color: var(--good); }
+.bal-sum-main.over { color: var(--danger); }
+.bal-sum .note { margin: 0; font-size: .76rem; }
+.lg-good { background: var(--accent); }
+.lg-over { background: var(--danger); }
 
 .diary-h {
   display: flex; justify-content: space-between; align-items: baseline;

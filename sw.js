@@ -21,6 +21,7 @@ const APP_SHELL = [
   './js/barcode.js',
   './js/weight.js',
   './js/exercise.js',
+  './js/balance.js',
   './js/pantry.js',
   './js/shopping.js',
   './js/suggest.js',
