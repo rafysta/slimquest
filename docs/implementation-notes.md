@@ -1,6 +1,6 @@
 # SlimQuest 実装ノート
 
-**対象バージョン: v0.6.0 (2026-08-21) / Phase 1〜4 すべて完了 + カロリー収支の可視化**
+**対象バージョン: v0.5.2 (2026-08-18) / Phase 1〜4 すべて完了**
 
 新しい会話を始めるときに、まずこのファイルを読めば現状が把握できるようにしたものです。
 機能を追加・変更したら、このファイルも必ず更新してください。
@@ -44,9 +44,9 @@
 | `meal-set` | セット(組み合わせ)メニューの作成 | ✅ v0.2.0 |
 | `recipe-edit` | レシピ登録(材料 + 何人分) | ✅ v0.3.0 |
 | `barcode` | バーコード読み取り | ✅ v0.3.0 |
-| `diary` | 食事日記(週の収支グラフ・日送り・カレンダー・削除) | ✅ カレンダーは v0.4.1、開いたまま日を選べるのは v0.5.1、週グラフは v0.6.0 |
+| `diary` | 食事日記(日送り・カレンダー・削除) | ✅ カレンダーは v0.4.1、開いたまま日を選べるのは v0.5.1 |
 | `weight` | 体重の記録とグラフ | ✅ |
-| `exercise` | 運動の記録 | ✅ |
+| `exercise` | 運動の記録(日記から過去日にも追加できる) | ✅ 過去日は v0.5.2 |
 | `badges` | 連続記録とバッジ | ✅ |
 | `settings` | プロフィール・目標・自動計上・データ削除 | ✅ |
 | `about` | バージョン・更新履歴・完全リセット | ✅ |
@@ -137,10 +137,6 @@
 **目標赤字に上限600kcalを設けている理由**: 81→60kg を 167日で達成するには毎日約900kcalの
 赤字が必要になるが、これは推奨ペースを超えている。上限で頭打ちにし、設定画面と体重グラフで
 「健康的なペースだとどこまで行けるか」を併記する。
-
-**ホームと日記で数字が違うのは仕様**。ホームのリングは目標赤字を引いた
-「今日あと何kcal食べられるか」、日記の収支(v0.6.0 / `js/balance.js`)は目標と無関係な
-「実際に何kcalの過不足だったか」。同じ日でも別の値になる。
 
 ### 体重グラフ(js/weight.js の `svg()`)
 
@@ -326,15 +322,23 @@
   再描画は grid の innerHTML 差し替えだけなので、**スクロール位置は動かない**
   (カレンダーと日記の両方が見える位置に合わせたまま、続けて日を選べる)
 
-**記録先の日(`Meals.targetDate`)** — 日記から「食事を追加」したときだけ今日以外になる。
+**記録先の日(`Meals.targetDate` / `Exercise.targetDate`)** — 日記から追加したときだけ今日以外になる。
+食事(v0.4.1)と運動(v0.5.2)がまったく同じ作りなので、片方を直したらもう片方も見ること。
 
-- `Meals.openAdd(slot, from)` の `from === 'diary'` で `targetDate = diaryDate` / `backTo = 'diary'`。
-  入口のボタン側は `data-addmeal-from="diary"` で指定する
-- 記録する側は `Calc.today()` を直に使わず **`Meals.date()`** を呼ぶこと
-  (`commitAmount` / `saveNew` / `combo.js` の `save`)
-- **`Streak.recordToday()` は `Meals.isToday()` のときだけ**。
+| | 食事 | 運動 |
+|---|---|---|
+| 開く | `Meals.openAdd(slot, from)` | `Exercise.open(from)` |
+| 入口の属性 | `data-addmeal` + `data-addmeal-from` | `data-addex` + `data-addex-from` |
+| 戻るボタン | `#ma-back` → `Meals.backTo` | `#ex-back` → `Exercise.backTo` |
+| 注意書き | `#ma-date-note` | `#ex-date-note` |
+
+- `from === 'diary'` なら `targetDate = Meals.diaryDate` / `backTo = 'diary'`
+- 記録する側は `Calc.today()` を直に使わず **`date()`** を呼ぶこと
+  (`Meals.commitAmount` / `Meals.saveNew` / `combo.js` の `save` / `Exercise.commit`)
+- **`Streak.recordToday()` は `isToday()` のときだけ**。
   連続記録は「今日記録したか」なので、過去の穴埋めで伸びてはいけない
-- 今日以外のときは食事入力画面の上に `#ma-date-note` で「◯/◯ の記録として追加します」と出す
+- 運動画面の一覧(`#ex-total` / `#ex-today`)も記録先の日のものを出す。
+  見出しは今日なら「今日の運動」、それ以外は「8/28(金)の運動」
 
 ### バックアップと復元(v0.5.0 / `js/backup.js`)
 
@@ -381,43 +385,16 @@ photos/0001.jpg …       お腹の写真(日付順)
 - **メニューを消しても過去の食事記録は残る。** 記録は登録時の数値のスナップショットなので、
   参照が切れても表示は壊れない
 
-### 日記の収支と週グラフ(v0.6.0 / `js/balance.js`)
-
-```
-収支 = 摂取 − (基礎消費 + 運動)
-マイナス = 消費のほうが多い = 減量できた日(緑・下向き)
-プラス   = 摂取が上回った日(赤・上向き)
-```
-
-- **記録がない日は 0kcal 摂取ではなく「記録なし」として扱う。**
-  そうしないと入力し忘れた日が「−2000kcalの大成功」として並び、週平均まで歪む。
-  日記の収支欄も同じ日は `—` と出す(グラフと扱いを揃えないと誤解のもとになる)
-- **過去の日の基礎消費はその当時の体重で計算する**(`Profile.baseBurnOn(date)` →
-  `Weight.onDate(date)`)。常に今日の体重を使うと、減量が進むほど昔の日の収支がずれていく。
-  `Weight.onDate()` はその日以前の直近の記録 → 最初の記録 → 開始体重、の順に落とす
-- 週は**月曜始まり**(`Calc.weekStart()` / `weekDays()`)。体重グラフの「週◯kg」ペース表示と揃えるため
-- 週ぶんのデータは `DB.byIndexRange` で**食事・運動を1回ずつ**取ってから日付で振り分ける
-  (日ごとに問い合わせると1週間で14トランザクションになる)
-- グラフは 0 を中心とした上下対称のSVG棒グラフ。目盛りは 600kcal 以上で200刻みに切り上げるので、
-  収支が小さい週に棒が大げさに見えることがない
-- **棒の上に置く要素(棒本体・数値・曜日)はすべて `pointer-events: none`。**
-  タップは背後の透明な `.bal-hit`(スロット全幅)が受ける。これをやらないと
-  棒そのものを押したときだけ反応しない、という分かりにくい不具合になる
-- 週グラフ・カレンダー・日送りは**すべて `Meals.diaryDate` ひとつを共有する**。
-  棒をタップ → その日の日記へ / 週送り → 7日ずらす(今日より先には進まない)。
-  グラフ用に別の「表示中の週」を持たせると、日記やカレンダーとずれて分かりにくくなる
-- 脂肪換算(1kg ≒ 7200kcal)は 0.1kg 以上のときだけ添える(端数だと「約0kg」になる)
-
 ## 4. 読み込み順序
 
 ```
 version → db → foods → calc → menus → ai → combo → meals → recipes → barcode
-        → weight → exercise → balance → pantry → shopping → suggest → belly → streak → backup → app
+        → weight → exercise → pantry → shopping → suggest → belly → streak → backup → app
 ```
 
 `ai.js` と `combo.js` は `meals.js` より前(`AiUI` を `Meals.openNew` が、
 `makeComboBuilder` を `SetBuilder` の定義が使うため)。
-`recipes.js` / `barcode.js` / `balance.js` は `meals.js` より後(`Meals` を参照するため)。
+`recipes.js` / `barcode.js` は `meals.js` より後(`Meals` を参照するため)。
 `suggest.js` は `pantry.js` / `shopping.js` / `recipes.js` の後。
 
 `app.js` が全モジュールに依存するため必ず最後。`backup.js` は DB の全ストアを触るので
@@ -430,7 +407,7 @@ version → db → foods → calc → menus → ai → combo → meals → recip
 
 ## 5. テスト
 
-`/tmp/test-slimquest.js` に jsdom + fake-indexeddb による自動テストがある(**290項目**、
+`/tmp/test-slimquest.js` に jsdom + fake-indexeddb による自動テストがある(**302項目**、
 v0.4.0 で作り直した)。**セッションが変わると消えるため、大きな変更のときは作り直すこと。**
 
 作り直すときの注意(はまりどころ):
@@ -460,7 +437,7 @@ v0.4.0 で作り直した)。**セッションが変わると消えるため、�
 - 写真の縮小サイズ計算・保存/削除・キャプション・スライダーの範囲・画面を離れるとカメラが止まること
 - ガイド枠の既定値/調整/保存/リセット、カメラ切替(mediaDevices をモックして確認)、file に capture が無いこと
 - カレンダーのマス数・先頭の空きマス・今日と選択日の印・未来日が押せないこと・月送りの年またぎ
-- 日記から過去日に記録できること、そのとき連続記録が伸びないこと
+- 日記から過去日に食事・運動を記録できること、そのとき連続記録が伸びないこと
 - メニューの編集・削除、同梱食品が編集できないこと、削除しても食事記録が残ること
 - バックアップの作成 → **Python の `zipfile` で開けること** → 全消去 → 復元の往復
 - APIキーがバックアップに入らないこと、復元しても端末のキーが残ること

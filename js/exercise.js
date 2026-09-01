@@ -21,6 +21,14 @@ const EX_PRESETS = [
 const Exercise = {
   sel: null,
 
+  /** これから記録する日。日記から入ったときだけ今日以外になる(食事記録と同じ作り) */
+  targetDate: '',
+  /** 運動画面の戻り先('home' / 'diary') */
+  backTo: 'home',
+
+  date() { return this.targetDate || Calc.today(); },
+  isToday() { return this.date() === Calc.today(); },
+
   async byDate(date) {
     const list = await DB.byIndex('exercises', 'date', date);
     return list.sort((a, b) => (a.id || 0) - (b.id || 0));
@@ -70,7 +78,32 @@ const Exercise = {
 
   /* ---------- 画面 ---------- */
 
+  /**
+   * 運動の記録画面を開く。
+   * from に 'diary' を渡すと日記で開いている日に記録し、戻るボタンも日記に返る
+   * (運動も、あとから「そういえば一昨日プールに行った」と足せるようにするため)。
+   */
+  open(from) {
+    this.backTo = from === 'diary' ? 'diary' : 'home';
+    this.targetDate = from === 'diary' ? (Meals.diaryDate || Calc.today()) : Calc.today();
+    showScreen('exercise');
+  },
+
+  /** 今日以外に記録するときだけ、どの日に入るかを目立たせる */
+  renderDateNote() {
+    const el = document.getElementById('ex-date-note');
+    if (!el) return;
+    if (this.isToday()) {
+      el.classList.add('hidden');
+      el.textContent = '';
+    } else {
+      el.textContent = `📅 ${Calc.fmtShort(this.date())} の記録として追加します`;
+      el.classList.remove('hidden');
+    }
+  },
+
   async render() {
+    this.renderDateNote();
     const box = document.getElementById('ex-presets');
     box.innerHTML = EX_PRESETS.map((p, i) => `
       <button class="ex-btn" data-ex="${i}">
@@ -106,15 +139,21 @@ const Exercise = {
     const p = EX_PRESETS[this.sel || 0];
     const min = Number(document.getElementById('ex-min').value);
     if (!min || min <= 0) { appAlert('時間(分)を入力してください'); return; }
-    const rec = await this.add(Calc.today(), p, min);
-    showToast(`${p.type} ${min}分(${rec.kcal}kcal)を記録しました`);
+    const d = this.date();
+    const rec = await this.add(d, p, min);
+    showToast(this.isToday()
+      ? `${p.type} ${min}分(${rec.kcal}kcal)を記録しました`
+      : `${Calc.fmtShort(d)} に ${p.type} ${min}分(${rec.kcal}kcal)を記録しました`);
     await this.renderToday();
   },
 
+  /** 記録先の日の一覧(今日とはかぎらない) */
   async renderToday() {
-    const list = await this.byDate(Calc.today());
+    const d = this.date();
+    const list = await this.byDate(d);
     const total = list.reduce((s, e) => s + e.kcal, 0);
-    document.getElementById('ex-total').textContent = `今日の運動 ${total} kcal`;
+    document.getElementById('ex-total').textContent =
+      `${this.isToday() ? '今日' : Calc.fmtShort(d)}の運動 ${total} kcal`;
     const box = document.getElementById('ex-today');
     box.innerHTML = list.length
       ? '<ul class="diary-list">' + list.map((e) => `

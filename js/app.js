@@ -100,17 +100,6 @@ const Profile = {
   autoCommute() { return this.get().commute; },
 
   /** 今日の基礎消費(運動を除く) */
-  /**
-   * ある日の基礎消費。過去の日はその当時の体重・年齢で計算する。
-   * 常に今日の体重で計算すると、減量が進むほど昔の日の収支がずれていくため。
-   */
-  baseBurnOn(date) {
-    const p = this.get();
-    const w = Weight.onDate(date);
-    const age = Calc.age(p.birthYear, p.birthMonth, date);
-    return Calc.baseBurn(Calc.bmr(w, p.height, age, p.sex));
-  },
-
   baseBurn() {
     const p = this.get();
     const w = Weight.current();
@@ -624,15 +613,6 @@ function bindEvents() {
   document.getElementById('btn-cal-next').addEventListener('click', () =>
     Meals.renderCal(Meals.shiftMonth(Meals.calYm, 1)));
 
-  // 週の収支グラフ。日記の日付と同じ状態を共有するので、週送り = 7日ずらす
-  // (グラフ用に別の「表示中の週」を持たせると、日記とずれて分かりにくくなる)
-  document.getElementById('btn-bal-prev').addEventListener('click', () =>
-    Meals.renderDiary(Calc.addDays(Meals.diaryDate, -7)));
-  document.getElementById('btn-bal-next').addEventListener('click', () => {
-    const d = Calc.addDays(Meals.diaryDate, 7);
-    Meals.renderDiary(d > Calc.today() ? Calc.today() : d);
-  });
-
   // 体重
   document.getElementById('btn-w-save').addEventListener('click', () => Weight.save());
   document.querySelectorAll('#w-range [data-range]').forEach((b) => {
@@ -640,6 +620,10 @@ function bindEvents() {
   });
 
   // 運動
+  document.querySelectorAll('[data-addex]').forEach((b) => {
+    b.addEventListener('click', () => Exercise.open(b.dataset.addexFrom));
+  });
+  document.getElementById('ex-back').addEventListener('click', () => showScreen(Exercise.backTo));
   document.getElementById('ex-min').addEventListener('input', () => Exercise.preview());
   document.getElementById('btn-ex-add').addEventListener('click', () => Exercise.commit());
 
@@ -701,6 +685,7 @@ async function boot() {
   Meals.slot = Meals.slotByHour();
   Meals.diaryDate = Calc.today();
   Meals.targetDate = Calc.today();
+  Exercise.targetDate = Calc.today();
 
   if (!Profile.isSet()) {
     startWizard();
