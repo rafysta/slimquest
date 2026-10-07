@@ -173,8 +173,9 @@ const Belly = {
       video.classList.remove('hidden');
       video.srcObject = this._stream;
       await video.play();
+      // 前回の写真があるときは案内を出さない(プレビューを広く取るため)。初回だけ立ち位置を案内する
       this.setStatus(this.latest()
-        ? '前回の写真に重ねて、縦線に体の中心・横線におへそを合わせてください'
+        ? ''
         : '縦線に体の中心、横線におへそが来るように立って撮ってください。次回からこの写真に重ねられます');
       return true;
     } catch (err) {

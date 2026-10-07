@@ -556,7 +556,33 @@ body {
 #bl-guide-panel .range-label:first-child { margin-top: 0; }
 .range-label { display: block; font-size: .8rem; color: var(--dim); margin: 12px 0 4px; }
 .range-label input[type="range"] { width: 100%; height: 36px; accent-color: var(--accent); }
-.file-btn { display: block; text-align: center; cursor: pointer; }
+.file-btn { display: flex; align-items: center; justify-content: center; cursor: pointer; }
+
+/* ガイド枠の調整ボタン(プレビュー左上。右上のカメラ切替と対) */
+.bl-guide-btn {
+  position: absolute; left: 8px; top: 8px;
+  min-height: 40px; padding: 0 12px; border-radius: 999px;
+  background: rgba(11, 18, 32, .72); color: var(--text);
+  border: 1px solid var(--line); font-size: .85rem;
+}
+/* 「濃さ」はラベルとスライダーを1行に */
+.range-inline { display: flex; align-items: center; gap: 10px; margin: 6px 0 0; white-space: nowrap; }
+.range-inline input[type="range"] { flex: 1; min-width: 0; }
+
+/* お腹の記録: 撮影ボタンまでスクロールなしで届くよう、プレビューは残りの高さだけを使う。
+ * 背の高い画面では 3:4 で頭打ち。ガイド枠の調整パネルを開くとプレビューが縮む。
+ * 動画も前回写真も同じ object-fit: cover なので、枠の比率が変わっても重ね合わせはずれない。 */
+#screen-belly.active {
+  display: flex; flex-direction: column;
+  min-height: calc(100vh - 28px - env(safe-area-inset-bottom));
+  min-height: calc(100dvh - 28px - env(safe-area-inset-bottom));
+}
+#screen-belly > * { flex: none; }
+#screen-belly .belly-frame {
+  flex: 1 1 0; aspect-ratio: auto; min-height: 220px;
+  max-height: calc(min(100vw - 28px, 532px) * 4 / 3);
+}
+#bl-status:empty { display: none; }
 
 .bv-frame {
   width: 100%; background: #000; border: 1px solid var(--line);

@@ -8,7 +8,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="css/style.css?v=0.6.1">
+<link rel="stylesheet" href="css/style.css?v=0.6.2">
 <script>
 /* スクリプト読み込み中のエラーも拾う(app.jsが画面に出す) */
 window.__earlyErrors = [];
@@ -328,14 +328,14 @@ window.addEventListener('unhandledrejection', function (e) {
     </div>
     <div class="bl-guide" id="bl-guide"></div>
     <button class="bl-flip" id="btn-bl-flip" aria-label="カメラを切り替える">🔄 <span id="bl-facing">外</span></button>
+    <button class="bl-guide-btn" id="btn-bl-guide" aria-label="ガイド枠を調整する">📐 枠</button>
   </div>
   <p class="note" id="bl-status"></p>
 
-  <label class="range-label">前回の写真の濃さ
+  <label class="range-label range-inline">前回の写真の濃さ
     <input type="range" id="bl-opacity" min="0" max="80" step="5" value="35">
   </label>
 
-  <button class="btn ghost" id="btn-bl-guide">📐 ガイド枠を調整する</button>
   <div class="card hidden" id="bl-guide-panel">
     <label class="range-label">枠のはば
       <input type="range" id="bl-gw" min="25" max="95" step="1" value="50">
@@ -351,11 +351,12 @@ window.addEventListener('unhandledrejection', function (e) {
   </div>
 
   <button class="btn primary" id="btn-bl-shoot">📸 撮影する</button>
-  <label class="btn ghost file-btn">🖼️ 保存済みの写真から選ぶ
-    <input type="file" id="bl-file" accept="image/*" hidden>
-  </label>
-  <button class="btn ghost" data-nav="belly-view">📈 変化を見る</button>
-  <p class="field-note">体重は水分で1〜2kg動くので、見た目の変化のほうが正直です。前回の写真を薄く重ねて同じ位置・同じ距離に合わせて撮ると、あとで並べたときに変化が分かります。写真は端末の中だけに保存され、どこにも送信されません。</p>
+  <div class="row2">
+    <label class="btn ghost file-btn">🖼️ 写真から選ぶ
+      <input type="file" id="bl-file" accept="image/*" hidden>
+    </label>
+    <button class="btn ghost" data-nav="belly-view">📈 変化を見る</button>
+  </div>
 </section>
 
 <!-- ============ 変化ビュー ============ -->
@@ -614,25 +615,25 @@ window.addEventListener('unhandledrejection', function (e) {
   </div>
 </div>
 
-<script src="js/version.js?v=0.6.1"></script>
-<script src="js/db.js?v=0.6.1"></script>
-<script src="js/foods.js?v=0.6.1"></script>
-<script src="js/calc.js?v=0.6.1"></script>
-<script src="js/menus.js?v=0.6.1"></script>
-<script src="js/ai.js?v=0.6.1"></script>
-<script src="js/combo.js?v=0.6.1"></script>
-<script src="js/meals.js?v=0.6.1"></script>
-<script src="js/recipes.js?v=0.6.1"></script>
-<script src="js/barcode.js?v=0.6.1"></script>
-<script src="js/weight.js?v=0.6.1"></script>
-<script src="js/exercise.js?v=0.6.1"></script>
-<script src="js/balance.js?v=0.6.1"></script>
-<script src="js/pantry.js?v=0.6.1"></script>
-<script src="js/shopping.js?v=0.6.1"></script>
-<script src="js/suggest.js?v=0.6.1"></script>
-<script src="js/belly.js?v=0.6.1"></script>
-<script src="js/streak.js?v=0.6.1"></script>
-<script src="js/backup.js?v=0.6.1"></script>
-<script src="js/app.js?v=0.6.1"></script>
+<script src="js/version.js?v=0.6.2"></script>
+<script src="js/db.js?v=0.6.2"></script>
+<script src="js/foods.js?v=0.6.2"></script>
+<script src="js/calc.js?v=0.6.2"></script>
+<script src="js/menus.js?v=0.6.2"></script>
+<script src="js/ai.js?v=0.6.2"></script>
+<script src="js/combo.js?v=0.6.2"></script>
+<script src="js/meals.js?v=0.6.2"></script>
+<script src="js/recipes.js?v=0.6.2"></script>
+<script src="js/barcode.js?v=0.6.2"></script>
+<script src="js/weight.js?v=0.6.2"></script>
+<script src="js/exercise.js?v=0.6.2"></script>
+<script src="js/balance.js?v=0.6.2"></script>
+<script src="js/pantry.js?v=0.6.2"></script>
+<script src="js/shopping.js?v=0.6.2"></script>
+<script src="js/suggest.js?v=0.6.2"></script>
+<script src="js/belly.js?v=0.6.2"></script>
+<script src="js/streak.js?v=0.6.2"></script>
+<script src="js/backup.js?v=0.6.2"></script>
+<script src="js/app.js?v=0.6.2"></script>
 </body>
 </html>
