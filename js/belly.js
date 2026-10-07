@@ -17,9 +17,35 @@
 const Belly = {
   MAX_SIDE: 1280,
   QUALITY: 0.8,
-  GUIDE_KEY: 'sq_belly_guide',
-  FACING_KEY: 'sq_belly_facing',
-  GUIDE_DEFAULT: { w: 50, h: 60, y: 50 },
+
+  /* 種類(kind)。同じ画面と同じ仕組みを「お腹」「顔」で使い回す。
+   * 写真の記録には kind を入れて保存する。kind が無い古い記録はお腹として扱う。
+   * ガイド枠とカメラの向きは種類ごとに覚える(お腹は以前からのキーをそのまま使う)。 */
+  KINDS: {
+    belly: {
+      label: 'お腹', guideKey: 'sq_belly_guide', facingKey: 'sq_belly_facing',
+      facing: 'environment', guide: { w: 50, h: 60, y: 50 },
+      hint: '縦線に体の中心、横線におへそが来るように立って撮ってください。次回からこの写真に重ねられます',
+      guideNote: '縦線に体の中心、横線におへそを合わせると、毎回だいたい同じ構図で撮れます。この設定は次回も覚えています。'
+    },
+    face: {
+      label: '顔', guideKey: 'sq_face_guide', facingKey: 'sq_face_facing',
+      facing: 'user', guide: { w: 55, h: 75, y: 42 },
+      hint: '縦線に鼻すじ、横線に目の高さが来るように正面を向いて撮ってください。次回からこの写真に重ねられます',
+      guideNote: '縦線に鼻すじ、横線に目の高さを合わせると、毎回だいたい同じ構図で撮れます。この設定は次回も覚えています。'
+    }
+  },
+  kind: 'belly',
+  cfg() { return this.KINDS[this.kind] || this.KINDS.belly; },
+  get GUIDE_KEY() { return this.cfg().guideKey; },
+  get FACING_KEY() { return this.cfg().facingKey; },
+  get GUIDE_DEFAULT() { return this.cfg().guide; },
+
+  /** ホームのボタンから。種類を切り替えてから撮影画面を開く */
+  open(kind) {
+    this.kind = this.KINDS[kind] ? kind : 'belly';
+    showScreen('belly');
+  },
 
   _stream: null,
   _facing: '',    // 'environment'(外側) / 'user'(内側)
@@ -31,7 +57,7 @@ const Belly = {
   /* ---------- データ ---------- */
 
   async load() {
-    const all = await DB.getAll('photos');
+    const all = (await DB.getAll('photos')).filter((p) => (p.kind || 'belly') === this.kind);
     this._list = all.sort((a, b) =>
       String(a.date).localeCompare(String(b.date)) || (a.id || 0) - (b.id || 0));
     return this._list;
@@ -78,12 +104,12 @@ const Belly = {
   },
 
   async savePhoto(blob, w, h) {
-    const rec = { date: Calc.today(), blob, w, h };
+    const rec = { date: Calc.today(), kind: this.kind, blob, w, h };
     rec.id = await DB.add('photos', rec);
     this._list.push(rec);
     this._list.sort((a, b) =>
       String(a.date).localeCompare(String(b.date)) || (a.id || 0) - (b.id || 0));
-    if (this._list.length >= 10) Streak.unlock('photo10');
+    if (this.kind === 'belly' && this._list.length >= 10) Streak.unlock('photo10');
     return rec;
   },
 
@@ -148,12 +174,23 @@ const Belly = {
 
   /** showScreen('belly') から呼ばれる */
   async onShow() {
+    this.renderKind();
     await this.load();
     this.renderGhost();
     this.loadGuide();
     this.setStatus('');
-    this._facing = localStorage.getItem(this.FACING_KEY) || 'environment';
+    this._facing = localStorage.getItem(this.FACING_KEY) || this.cfg().facing;
     await this.startCamera();
+  },
+
+  /** 見出しと説明文を種類に合わせる */
+  renderKind() {
+    const c = this.cfg();
+    const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+    set('bl-title', `${c.label}の記録`);
+    set('bv-title', `${c.label}の変化`);
+    set('bl-guide-note', c.guideNote);
+    set('bv-empty', `まだ写真がありません。「${c.label}の記録」から撮影してください。`);
   },
 
   /** 現在の向き(this._facing)でカメラを開く */
@@ -174,9 +211,7 @@ const Belly = {
       video.srcObject = this._stream;
       await video.play();
       // 前回の写真があるときは案内を出さない(プレビューを広く取るため)。初回だけ立ち位置を案内する
-      this.setStatus(this.latest()
-        ? ''
-        : '縦線に体の中心、横線におへそが来るように立って撮ってください。次回からこの写真に重ねられます');
+      this.setStatus(this.latest() ? '' : this.cfg().hint);
       return true;
     } catch (err) {
       this.setStatus(`カメラを使えませんでした: ${err.message}。「保存済みの写真から選ぶ」でも記録できます。`, true);
@@ -287,6 +322,7 @@ const Belly = {
   /* ---------- 変化ビュー ---------- */
 
   async onShowView() {
+    this.renderKind();
     await this.load();
     this._idx = Math.max(0, this._list.length - 1);
     this.renderView();

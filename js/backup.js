@@ -244,7 +244,7 @@ const Backup = {
       `🏃 運動の記録: ${n('exercises')}件`,
       `📋 登録したメニュー: ${n('menus')}件`,
       `🥬 手持ち食材: ${n('pantry')}件 / 🛒 買い物リスト: ${n('shopping')}件`,
-      `📸 お腹の写真: ${photos.length ? `${photos.length}枚 (${this.fmtBytes(bytes)})` : '含まれていません'}`,
+      `📸 お腹・顔の写真: ${photos.length ? `${photos.length}枚 (${this.fmtBytes(bytes)})` : '含まれていません'}`,
       `🔑 APIキー: ${meta && meta.includeKeys ? '含まれています' : '含まれていません'}`
     ];
   },
@@ -284,7 +284,7 @@ const Backup = {
       '3. このZIPファイルを選ぶ',
       '',
       '※ このファイルは展開しないでください。ZIPのまま選んでください。',
-      '※ slimquest-backup.json に記録と設定、photos/ にお腹の写真が入っています。',
+      '※ slimquest-backup.json に記録と設定、photos/ にお腹・顔の写真が入っています。',
       '※ 写真を含まないバックアップから復元しても、端末に入っている写真は消えません。'
     ].join('\n');
   },
@@ -328,7 +328,7 @@ const Backup = {
           if (!p.blob || !p.blob.size) continue;
           const path = `photos/${String(++i).padStart(4, '0')}.jpg`;
           meta.photos.push({
-            path, id: p.id, date: p.date, w: p.w || 0, h: p.h || 0,
+            path, id: p.id, date: p.date, kind: p.kind || 'belly', w: p.w || 0, h: p.h || 0,
             type: p.blob.type || 'image/jpeg', bytes: p.blob.size
           });
           files.push({ name: path, data: p.blob });
@@ -414,13 +414,13 @@ const Backup = {
 
     const photos = meta.photos || [];
     if (photos.length) {
-      say('お腹の写真を書き戻しています…');
+      say('写真を書き戻しています…');
       const rows = [];
       for (const p of photos) {
         const b = byPath[p.path];
         if (!b) { stats.missing++; continue; }
         rows.push({
-          id: p.id, date: p.date, w: p.w || 0, h: p.h || 0,
+          id: p.id, date: p.date, kind: p.kind || 'belly', w: p.w || 0, h: p.h || 0,
           blob: new Blob([b], { type: p.type || 'image/jpeg' })
         });
       }

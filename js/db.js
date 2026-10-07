@@ -5,7 +5,7 @@
  *   meals     食事記録        {id, date, slot, menuId, name, kcal, p, f, c, factor}
  *   weights   体重            {date, weight, bodyFat}         ※keyPath=date(1日1件)
  *   exercises 運動            {id, date, type, mets, minutes, kcal, auto}
- *   photos    お腹の写真      {id, date, blob, w, h}
+ *   photos    お腹・顔の写真  {id, date, kind('belly'|'face', 無ければ belly), blob, w, h}
  *   shopping  買い物リスト    {id, name, amount, checked, addedAt, source}
  *   pantry    手持ち食材      {id, name, kana, addedAt}
  *   ingWords  食材入力履歴    {name, kana, useCount, lastUsed}  ※keyPath=name

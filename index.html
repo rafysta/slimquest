@@ -8,7 +8,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="css/style.css?v=0.6.3">
+<link rel="stylesheet" href="css/style.css?v=0.7.0">
 <script>
 /* スクリプト読み込み中のエラーも拾う(app.jsが画面に出す) */
 window.__earlyErrors = [];
@@ -36,10 +36,11 @@ window.addEventListener('unhandledrejection', function (e) {
     <p id="pfc-line" class="pfc-line"></p>
   </div>
 
-  <div class="quick-row three">
+  <div class="quick-row four">
     <button class="quick-btn primary" data-addmeal="">🍽️<span>食事</span></button>
     <button class="quick-btn" data-addex="">🏃<span>運動</span></button>
-    <button class="quick-btn" data-nav="belly">📸<span>お腹</span></button>
+    <button class="quick-btn" data-photo="belly">📸<span>お腹</span></button>
+    <button class="quick-btn" data-photo="face">🙂<span>顔</span></button>
   </div>
 
   <div class="card mini-row">
@@ -296,7 +297,7 @@ window.addEventListener('unhandledrejection', function (e) {
 <section id="screen-belly" class="screen">
   <header class="sub-header">
     <button class="back" data-nav="home">←</button>
-    <h2>お腹の記録</h2>
+    <h2 id="bl-title">お腹の記録</h2>
   </header>
 
   <div class="belly-frame">
@@ -327,7 +328,7 @@ window.addEventListener('unhandledrejection', function (e) {
       <input type="range" id="bl-gy" min="10" max="90" step="1" value="50">
     </label>
     <button class="btn ghost" id="btn-bl-guide-reset">最初の大きさに戻す</button>
-    <p class="field-note">縦線に体の中心、横線におへそを合わせると、毎回だいたい同じ構図で撮れます。この設定は次回も覚えています。</p>
+    <p class="field-note" id="bl-guide-note">縦線に体の中心、横線におへそを合わせると、毎回だいたい同じ構図で撮れます。この設定は次回も覚えています。</p>
   </div>
 
   <button class="btn primary" id="btn-bl-shoot">📸 撮影する</button>
@@ -343,7 +344,7 @@ window.addEventListener('unhandledrejection', function (e) {
 <section id="screen-belly-view" class="screen">
   <header class="sub-header">
     <button class="back" data-nav="belly">←</button>
-    <h2>お腹の変化</h2>
+    <h2 id="bv-title">お腹の変化</h2>
   </header>
 
   <p class="empty hidden" id="bv-empty">まだ写真がありません。「お腹の記録」から撮影してください。</p>
@@ -595,25 +596,25 @@ window.addEventListener('unhandledrejection', function (e) {
   </div>
 </div>
 
-<script src="js/version.js?v=0.6.3"></script>
-<script src="js/db.js?v=0.6.3"></script>
-<script src="js/foods.js?v=0.6.3"></script>
-<script src="js/calc.js?v=0.6.3"></script>
-<script src="js/menus.js?v=0.6.3"></script>
-<script src="js/ai.js?v=0.6.3"></script>
-<script src="js/combo.js?v=0.6.3"></script>
-<script src="js/meals.js?v=0.6.3"></script>
-<script src="js/recipes.js?v=0.6.3"></script>
-<script src="js/barcode.js?v=0.6.3"></script>
-<script src="js/weight.js?v=0.6.3"></script>
-<script src="js/exercise.js?v=0.6.3"></script>
-<script src="js/balance.js?v=0.6.3"></script>
-<script src="js/pantry.js?v=0.6.3"></script>
-<script src="js/shopping.js?v=0.6.3"></script>
-<script src="js/suggest.js?v=0.6.3"></script>
-<script src="js/belly.js?v=0.6.3"></script>
-<script src="js/streak.js?v=0.6.3"></script>
-<script src="js/backup.js?v=0.6.3"></script>
-<script src="js/app.js?v=0.6.3"></script>
+<script src="js/version.js?v=0.7.0"></script>
+<script src="js/db.js?v=0.7.0"></script>
+<script src="js/foods.js?v=0.7.0"></script>
+<script src="js/calc.js?v=0.7.0"></script>
+<script src="js/menus.js?v=0.7.0"></script>
+<script src="js/ai.js?v=0.7.0"></script>
+<script src="js/combo.js?v=0.7.0"></script>
+<script src="js/meals.js?v=0.7.0"></script>
+<script src="js/recipes.js?v=0.7.0"></script>
+<script src="js/barcode.js?v=0.7.0"></script>
+<script src="js/weight.js?v=0.7.0"></script>
+<script src="js/exercise.js?v=0.7.0"></script>
+<script src="js/balance.js?v=0.7.0"></script>
+<script src="js/pantry.js?v=0.7.0"></script>
+<script src="js/shopping.js?v=0.7.0"></script>
+<script src="js/suggest.js?v=0.7.0"></script>
+<script src="js/belly.js?v=0.7.0"></script>
+<script src="js/streak.js?v=0.7.0"></script>
+<script src="js/backup.js?v=0.7.0"></script>
+<script src="js/app.js?v=0.7.0"></script>
 </body>
 </html>

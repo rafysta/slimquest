@@ -502,6 +502,10 @@ function bindEvents() {
   document.querySelectorAll('[data-nav]').forEach((b) => {
     b.addEventListener('click', () => showScreen(b.dataset.nav));
   });
+  // お腹 / 顔の撮影(同じ画面を種類の切り替えで使う)
+  document.querySelectorAll('[data-photo]').forEach((b) => {
+    b.addEventListener('click', () => Belly.open(b.dataset.photo));
+  });
 
   // 食事
   document.querySelectorAll('[data-addmeal]').forEach((b) => {
