@@ -132,7 +132,7 @@ body {
 .quick-btn.primary { background: var(--accent-d); border-color: var(--accent-d); color: #04140d; }
 .quick-btn.primary span { color: #04140d; font-weight: 700; }
 
-.mini-row { display: flex; gap: 10px; padding: 8px; }
+.mini-row { display: flex; gap: 10px; padding: 8px; margin-bottom: 14px; }
 .mini-item {
   flex: 1; background: transparent; border: 0; color: var(--text);
   text-align: left; padding: 6px 8px;
@@ -142,7 +142,16 @@ body {
 .mini-val b { font-size: 1.2rem; }
 .mini-val small { color: var(--dim); font-size: .75rem; margin-left: 4px; }
 
+#screen-home { padding-top: calc(14px + env(safe-area-inset-top)); }
+.quick-row.three { grid-template-columns: repeat(3, 1fr); }
 .home-menu { display: flex; flex-direction: column; gap: 10px; }
+/* 設定・アプリ情報: 説明なしの横並び(ホームを1画面に収めるため) */
+.home-menu.row2 { display: grid; }
+.menu-btn.compact {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px; padding: 8px;
+}
+.menu-btn.compact .menu-icon { font-size: 1.15rem; }
 .menu-btn {
   display: grid; grid-template-columns: 40px 1fr; grid-template-rows: auto auto;
   align-items: center; text-align: left; gap: 0 8px;

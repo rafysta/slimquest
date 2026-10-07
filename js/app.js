@@ -163,14 +163,8 @@ async function renderHome() {
   const p = Profile.get();
   const today = Calc.today();
 
-  // 結婚式までのカウントダウン
-  const left = Calc.diffDays(today, p.goalDate);
-  document.getElementById('countdown').innerHTML = left >= 0
-    ? `目標日まで <b>${left}</b> 日`
-    : '目標日を過ぎました';
-
-  // 連続記録
-  document.getElementById('streak-text').textContent = `連続 ${Streak.current()} 日`;
+  // 連続記録(食事日記の入口に添える)
+  document.getElementById('streak-text').textContent = `🔥 連続 ${Streak.current()} 日`;
 
   // 今日の収支
   const [meals, burned] = await Promise.all([
@@ -201,10 +195,6 @@ async function renderHome() {
     <div><span>運動</span><b>${burned}</b></div>`;
   document.getElementById('pfc-line').textContent =
     `P ${t.p}g / F ${t.f}g / C ${t.c}g`;
-
-  // 買い物リストに残りがあればホームのボタンに件数を出す
-  const rest2 = Shopping.remaining();
-  document.getElementById('home-shop').textContent = rest2 ? `買い物 ${rest2}` : '買い物';
 
   // 体重
   const cur = Weight.current();
@@ -691,7 +681,6 @@ function bindEvents() {
 
 async function boot() {
   bindEvents();
-  document.getElementById('version-footer').textContent = `SlimQuest v${APP_VERSION}`;
 
   try {
     await Menus.load();
