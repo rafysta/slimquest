@@ -4,10 +4,19 @@
  */
 'use strict';
 
-const APP_VERSION = '0.7.0';
+const APP_VERSION = '0.7.1';
 const APP_BUILD = '2026-10-08';
 
 const CHANGELOG = [
+  {
+    version: '0.7.1',
+    date: '2026-10-08',
+    title: '変化ビューをスクロールなしで',
+    items: [
+      'お腹・顔の変化ビューで、写真を画面の残りの高さに収め、スライダー・再生・削除までスクロールなしで届くようにした',
+      '写真は切り取らずに全体を表示する(余白は黒)'
+    ]
+  },
   {
     version: '0.7.0',
     date: '2026-10-08',
